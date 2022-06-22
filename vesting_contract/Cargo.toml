@@ -1,0 +1,58 @@
+[package]
+name = "vesting_contract"
+version = "3.0.0-rc9"
+authors = ["[your_name] <[your_email]>"]
+edition = "2021"
+overflow-checks = false
+
+[dependencies]
+# Import of all ink! crates
+ink_primitives = { version = "3.2.0", default-features = false }
+ink_metadata = { version = "3.2.0", default-features = false, features = ["derive"], optional = true }
+ink_env = { version = "3.2.0", default-features = false }
+ink_storage = { version = "3.2.0", default-features = false }
+ink_lang = { version = "3.2.0", default-features = false }
+ink_prelude = { version = "3.2.0", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
+
+openbrush = { version = "~2.0.0", default-features = false, features = ["psp22"] }
+num-traits =  { version = "0.2", default-features = false}
+num-integer =  { version = "0.1", default-features = false}
+
+chrono =  { version = "0.4", default-features = false}
+
+
+
+[lib]
+overflow-checks = false
+name = "vesting_contract"
+path = "lib.rs"
+crate-type = [
+	# Used for normal contract Wasm blobs.
+	"cdylib"
+]
+[profile.release]
+overflow-checks = false
+
+
+[features]
+default = ["std"]
+std = [
+  "ink_primitives/std",
+  "ink_metadata",
+  "ink_metadata/std",
+  "ink_env/std",
+  "ink_storage/std",
+  "ink_lang/std",
+  "scale/std",
+  "scale-info",
+  "scale-info/std",
+
+  # Brush dependency
+  "openbrush/std",
+  "num-traits/std",
+  "num-integer/std",
+  "chrono/std"
+]
