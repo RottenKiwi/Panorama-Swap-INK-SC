@@ -1,6 +1,6 @@
 [package]
-name = "vesting_contract"
-version = "3.0.0-rc9"
+name = "pair_creator"
+version = "3.0.0"
 authors = ["[your_name] <[your_email]>"]
 edition = "2021"
 overflow-checks = false
@@ -20,14 +20,14 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 openbrush = { version = "~2.0.0", default-features = false, features = ["psp22"] }
 num-traits =  { version = "0.2", default-features = false}
 num-integer =  { version = "0.1", default-features = false}
-
+trading_pair_azero = { path = "../trading_pair_azero",version="3.0.0",default-features = false, features = ["ink-as-dependency"] }
 chrono =  { version = "0.4", default-features = false}
 
 
 
 [lib]
 overflow-checks = false
-name = "vesting_contract"
+name = "pair_creator"
 path = "lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.
@@ -54,5 +54,10 @@ std = [
   "openbrush/std",
   "num-traits/std",
   "num-integer/std",
-  "chrono/std"
+  "chrono/std",
+  "trading_pair_azero/std",
+]
+[workspace]
+memebers =[
+    "trading_pair_azero",
 ]

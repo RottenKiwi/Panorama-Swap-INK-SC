@@ -51,9 +51,6 @@ pub mod vesting_contract {
         panx_to_give_in_a_day: ink_storage::Mapping<AccountId, Balance>,
         //last time account redeemed
         last_redeemed:ink_storage::Mapping<AccountId, u64>,
-        //Logging claiming  into vec
-        claiming_log:  ink_storage::Mapping<AccountId, String>,
-        
 
 
     }
@@ -76,12 +73,12 @@ pub mod vesting_contract {
         }
 
 
-        //adding seed events participants to vesting contract and their PANX vesting allocation
-        //Only manager can use this function
+        ///adding seed events participants to vesting contract and their PANX vesting allocation
+        ///Only manager can use this function
         #[ink(message)]
-        pub fn add_to_vesting_map(&mut self,account:AccountId,panx_to_give_overall:Balance)  {
+        pub fn add_to_vesting(&mut self,account:AccountId,panx_to_give_overall:Balance)  {
 
-           //Making sure caller is the manager (Only manager get add)
+           //Making sure caller is the manager (Only manager can add)
            assert!(self.env().caller() == self.manager);
            //get current account balance (If any)
            let account_balance = self.balances.get(&account).unwrap_or(0);
@@ -99,7 +96,7 @@ pub mod vesting_contract {
            
            
         }
-        //fun to collect TGE (10%) for account
+        ///function to collect TGE (10%) for account
         #[ink(message)]
         pub fn collect_tge_tokens(&mut self)  {
 
@@ -127,22 +124,11 @@ pub mod vesting_contract {
            //make sure to change his collected tge status to 1 to prevent the user to call it again
            self.collected_tge.insert(account,&1);
 
-           let date_as_string = &self.get_current_timestamp_as_utc_string();
 
-           //casting str on the amount given to use in as log
-           let mut amount_given_str = amount_to_give.to_string();
-           //building a whole string of recorded trans
-           let str_to_log = "toknes: ".to_owned()+ &amount_given_str +", date:"+ date_as_string+", type: TGE; ";
-           //pushing log into logs vec
-
-           
-           let current_log = self.claiming_log.get(&self.env().caller()).unwrap_or("".to_string());
-
-           self.claiming_log.insert(self.env().caller(), &(current_log.to_string() + &str_to_log));
 
         }
 
-        //fun to get account redeemable amount of tokens
+        ///function to get account redeemable amount of tokens
         #[ink(message)]
         pub fn get_redeemable_amount(&mut self) -> Balance {
 
@@ -181,7 +167,7 @@ pub mod vesting_contract {
 
         }
 
-        //fun for account to redeem his redeemable tokens.
+        ///function for account to redeem his redeemable tokens.
         #[ink(message)]
         pub fn redeem_redeemable_amount(&mut self) {
 
@@ -222,26 +208,15 @@ pub mod vesting_contract {
             //cross contract call to PANX contract to transfer PANX to caller
             let response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]);
 
-            let date_as_string = &self.get_current_timestamp_as_utc_string();
-
-
-            //casting str on the amount given to use as log
-            let mut amount_given_str = amount_redeemable_amount.to_string();
-            //building a whole string of recorded trans
-            let str_to_log = "toknes: ".to_owned()+ &amount_given_str +", date:"+ date_as_string+", type: CLAIM; ";
-            //pushing log into logs vec
- 
             
-            let current_log = self.claiming_log.get(&self.env().caller()).unwrap_or("".to_string());
- 
-            self.claiming_log.insert(self.env().caller(), &(current_log.to_string() + &str_to_log));
+
+
+
         
         }
 
 
-
-
-        //fun to get acount total locked tokens
+        ///function to get account total locked tokens
         #[ink(message)]
         pub fn get_account_total_vesting_amount(&mut self,account:AccountId)->Balance  {
         
@@ -249,7 +224,7 @@ pub mod vesting_contract {
            account_balance
 
         }
-        //fun to get account last redeem in timestamp
+        ///funtion to get account last redeem in timestamp
         #[ink(message)]
         pub fn get_account_last_redeem(&mut self,account:AccountId)->u64  {
         
@@ -257,7 +232,7 @@ pub mod vesting_contract {
            time_stamp
 
         }
-        //fun to get the amount of tokens to give to account each day.
+        ///function to get the amount of tokens to give to account each day.
         #[ink(message)]
         pub fn get_amount_to_give_each_day_to_account(&mut self,account:AccountId)->Balance  {
         
@@ -265,7 +240,7 @@ pub mod vesting_contract {
            account_balance
 
         }
-        //fun to get vesting contract PANX amount
+        ///funtion to get vesting contract PANX reserve
         #[ink(message)]
         pub fn get_vesting_contract_panx_reserve(&self)->Balance  {
         
@@ -274,7 +249,7 @@ pub mod vesting_contract {
 
 
         }
-        //fun to get status on TGE collection
+        ///function to get account TGE collection status
         #[ink(message)]
         pub fn user_tge_collection_status(&mut self,account:AccountId)->i64  {
 
@@ -283,7 +258,7 @@ pub mod vesting_contract {
 
 
         }
-        //fun to get the started date in timpstamp and str
+        ///funtion to get the started date since issuing the vesting contract in timpstamp and str
         #[ink(message)]
         pub fn get_started_date(&self) -> (u64,String) {
             let timestamp = self.started_date_in_timestamp;
@@ -292,7 +267,7 @@ pub mod vesting_contract {
         }
 
         
-        //fun to get current timpstamp
+        ///function to get current timpstamp in seconds
         #[ink(message)]
         pub fn get_current_timestamp(&self) -> u64 {
             let bts = self.env().block_timestamp() / 1000;
@@ -300,7 +275,7 @@ pub mod vesting_contract {
         }
 
         
-        //fun to get current timpstamp as str
+        ///function to get current timpstamp in seconds as str
         #[ink(message)]
         pub fn get_current_timestamp_as_utc_string(&self) -> String {
             let bts = self.env().block_timestamp() / 1000;
@@ -310,15 +285,8 @@ pub mod vesting_contract {
             datetime_again.to_string()
         }
 
-        //fun to get claim log of account
-        #[ink(message)]
-        pub fn get_claim_log(&self,of: AccountId) -> String {
-            let of_log = self.claiming_log.get(&of).unwrap_or("0".to_string());
 
-            of_log
-        }
-
-        //fun to change account tge status
+        //funtion to change account tge status
         #[ink(message)]
         pub fn change_tge_status_to_0(&mut self,of: AccountId)  {
 
@@ -327,7 +295,7 @@ pub mod vesting_contract {
             
         }
 
-        //fun to change balance amount for account
+        ///funtion to change balance amount for account
         #[ink(message)]
         pub fn change_balance_amount(&mut self,of: AccountId,value:Balance)  {
 
@@ -336,6 +304,14 @@ pub mod vesting_contract {
             
         }
 
+        ///function to change balance amount for account
+        #[ink(message)]
+        pub fn change_daily_claim(&mut self,of: AccountId,value:Balance)  {
+
+            self.panx_to_give_in_a_day.insert(of,&value);
+
+            
+        }
         //get the days pass since deployment
         #[ink(message)]
         pub fn get_days_passed_since_issue(&self) -> u64 {

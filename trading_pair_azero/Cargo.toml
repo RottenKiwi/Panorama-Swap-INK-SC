@@ -1,5 +1,5 @@
 [package]
-name = "panx_a0"
+name = "trading_pair_azero"
 version = "3.0.0"
 authors = ["[your_name] <[your_email]>"]
 edition = "2021"
@@ -7,32 +7,34 @@ overflow-checks = false
 
 [dependencies]
 # Import of all ink! crates
-ink_primitives = { version = "3.2.0", default-features = false }
-ink_metadata = { version = "3.2.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "3.2.0", default-features = false }
-ink_storage = { version = "3.2.0", default-features = false }
-ink_lang = { version = "3.2.0", default-features = false }
-ink_prelude = { version = "3.2.0", default-features = false }
+# Import of all ink! crates
+ink_primitives = { version = "~3.2.0", default-features = false }
+ink_metadata = { version = "~3.2.0", default-features = false, features = ["derive"], optional = true }
+ink_env = { version = "~3.2.0", default-features = false }
+ink_storage = { version = "~3.2.0", default-features = false }
+ink_lang = { version = "~3.2.0", default-features = false }
+ink_prelude = { version = "~3.2.0", default-features = false }
+ink_engine = { version = "~3.2.0", default-features = false, optional = true }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
-
 openbrush = { version = "~2.0.0", default-features = false, features = ["psp22"] }
 num-traits =  { version = "0.2", default-features = false}
 num-integer =  { version = "0.1", default-features = false}
-
 chrono =  { version = "0.4", default-features = false}
+
 
 
 
 
 [lib]
 overflow-checks = false
-name = "panx_a0"
+name = "trading_pair_azero"
 path = "lib.rs"
 crate-type = [
-	# Used for normal contract Wasm blobs.
-	"cdylib"
+    "cdylib",
+    # Used for ABI. Required for contracts to be included in other contracts.
+    "rlib",
 ]
 [profile.release]
 overflow-checks = false
@@ -58,3 +60,4 @@ std = [
   "num-integer/std",
   "chrono/std"
 ]
+ink-as-dependency = []
