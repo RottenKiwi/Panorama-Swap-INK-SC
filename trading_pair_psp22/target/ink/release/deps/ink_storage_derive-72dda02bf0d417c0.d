@@ -1,0 +1,9 @@
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/deps/libink_storage_derive-72dda02bf0d417c0.so: /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/lib.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/packed_layout.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/spread_allocate.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/spread_layout.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/storage_layout.rs
+
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/deps/ink_storage_derive-72dda02bf0d417c0.d: /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/lib.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/packed_layout.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/spread_allocate.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/spread_layout.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/storage_layout.rs
+
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/lib.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/packed_layout.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/spread_allocate.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/spread_layout.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.0.0/src/storage_layout.rs:

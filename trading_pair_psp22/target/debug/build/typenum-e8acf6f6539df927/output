@@ -1,0 +1,2 @@
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/yoni/CourseCryptoProjects/RustProjects/swapv1/target/debug/build/typenum-e8acf6f6539df927/out/consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=/home/yoni/CourseCryptoProjects/RustProjects/swapv1/target/debug/build/typenum-e8acf6f6539df927/out/op.rs

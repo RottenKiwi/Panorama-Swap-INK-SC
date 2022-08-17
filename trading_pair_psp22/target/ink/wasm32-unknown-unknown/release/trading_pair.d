@@ -1,0 +1,1 @@
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/wasm32-unknown-unknown/release/trading_pair.wasm: /home/yoni/CourseCryptoProjects/RustProjects/panorama/erc20/lib.rs /home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/lib.rs

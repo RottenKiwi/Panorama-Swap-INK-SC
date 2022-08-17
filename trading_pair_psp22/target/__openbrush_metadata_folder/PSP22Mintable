@@ -1,0 +1,1 @@
+"pub trait PSP22Mintable\n{\n    #[doc = \" Minting `amount` tokens to the account.\"] #[doc = \"\"]\n    #[doc = \" See [`PSP22::_mint`].\"] #[ink(message)]\n    #[ink(selector = 4231820756u32)] fn\n    mint(& mut self, account : AccountId, amount : Balance) -> Result < (),\n    PSP22Error > ;\n}"

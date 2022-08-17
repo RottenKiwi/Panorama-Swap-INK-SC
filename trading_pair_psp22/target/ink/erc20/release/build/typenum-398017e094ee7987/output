@@ -1,0 +1,2 @@
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/yoni/CourseCryptoProjects/RustProjects/swapv1/target/ink/erc20/release/build/typenum-398017e094ee7987/out/consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=/home/yoni/CourseCryptoProjects/RustProjects/swapv1/target/ink/erc20/release/build/typenum-398017e094ee7987/out/op.rs

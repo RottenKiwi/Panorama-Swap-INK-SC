@@ -1,7 +1,7 @@
 [package]
 name = "trading_pair_azero"
 version = "3.0.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["Yonatan Hornstein yonatan@panoramaswap.com"]
 edition = "2021"
 overflow-checks = false
 
@@ -19,16 +19,14 @@ ink_engine = { version = "~3.2.0", default-features = false, optional = true }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 openbrush = { version = "~2.0.0", default-features = false, features = ["psp22"] }
-num-traits =  { version = "0.2", default-features = false}
-num-integer =  { version = "0.1", default-features = false}
-chrono =  { version = "0.4", default-features = false}
+
+
 
 
 
 
 
 [lib]
-overflow-checks = false
 name = "trading_pair_azero"
 path = "lib.rs"
 crate-type = [
@@ -37,7 +35,7 @@ crate-type = [
     "rlib",
 ]
 [profile.release]
-overflow-checks = false
+
 
 
 [features]
@@ -54,10 +52,6 @@ std = [
   "scale-info/std",
 
   # Brush dependency
-  "openbrush/std",
-
-  "num-traits/std",
-  "num-integer/std",
-  "chrono/std"
+  "openbrush/std"
 ]
 ink-as-dependency = []

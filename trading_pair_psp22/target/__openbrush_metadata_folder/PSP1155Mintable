@@ -1,0 +1,1 @@
+"pub trait PSP1155Mintable\n{\n    #[doc = \" Mints `amount` tokens of token type `id` to `to`\"] #[doc = \"\"]\n    #[doc = \" See [`PSP1155::_mint_to`].\"] #[ink(message)]\n    #[ink(selector = 2871344384u32)] fn\n    mint(& mut self, to : AccountId, ids_amounts : Vec < (Id, Balance) >) ->\n    Result < (), PSP1155Error > ;\n}"

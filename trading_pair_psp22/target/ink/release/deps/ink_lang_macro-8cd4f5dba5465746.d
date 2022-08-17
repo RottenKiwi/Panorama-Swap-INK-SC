@@ -1,0 +1,11 @@
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/deps/libink_lang_macro-8cd4f5dba5465746.so: /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/lib.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/blake2b.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/chain_extension.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/contract.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/ink_test.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/selector.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/trait_def.rs
+
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/deps/ink_lang_macro-8cd4f5dba5465746.d: /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/lib.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/blake2b.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/chain_extension.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/contract.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/ink_test.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/selector.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/trait_def.rs
+
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/lib.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/blake2b.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/chain_extension.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/contract.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/ink_test.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/selector.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/lang/macro/src/trait_def.rs:

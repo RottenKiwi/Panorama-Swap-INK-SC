@@ -1,0 +1,1 @@
+"pub trait Proxy : Ownable\n{\n    #[ink(message)] #[ink(selector = 4026764969u32)] fn\n    get_delegate_code(& self) -> Hash ; #[ink(message)]\n    #[ink(selector = 2941781364u32)] fn\n    change_delegate_code(& mut self, new_code_hash : Hash) -> Result < (),\n    OwnableError > ;\n}"

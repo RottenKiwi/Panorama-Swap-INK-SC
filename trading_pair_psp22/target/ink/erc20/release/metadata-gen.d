@@ -1,0 +1,1 @@
+/home/yoni/CourseCryptoProjects/RustProjects/swapv1/target/ink/erc20/release/metadata-gen: /home/yoni/CourseCryptoProjects/RustProjects/swapv1/erc20/lib.rs /tmp/cargo-contract_DHmYs8/erc20/.ink/metadata_gen/main.rs

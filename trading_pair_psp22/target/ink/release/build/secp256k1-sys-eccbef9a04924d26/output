@@ -1,0 +1,42 @@
+TARGET = Some("x86_64-unknown-linux-gnu")
+OPT_LEVEL = Some("0")
+HOST = Some("x86_64-unknown-linux-gnu")
+CC_x86_64-unknown-linux-gnu = None
+CC_x86_64_unknown_linux_gnu = None
+HOST_CC = None
+CC = None
+CFLAGS_x86_64-unknown-linux-gnu = None
+CFLAGS_x86_64_unknown_linux_gnu = None
+HOST_CFLAGS = None
+CFLAGS = None
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some("false")
+CARGO_CFG_TARGET_FEATURE = Some("fxsr,llvm14-builtins-abi,sse,sse2")
+CC_x86_64-unknown-linux-gnu = None
+CC_x86_64_unknown_linux_gnu = None
+HOST_CC = None
+CC = None
+CFLAGS_x86_64-unknown-linux-gnu = None
+CFLAGS_x86_64_unknown_linux_gnu = None
+HOST_CFLAGS = None
+CFLAGS = None
+CRATE_CC_NO_DEFAULTS = None
+CARGO_CFG_TARGET_FEATURE = Some("fxsr,llvm14-builtins-abi,sse,sse2")
+running: "cc" "-O0" "-ffunction-sections" "-fdata-sections" "-fPIC" "-m64" "-I" "depend/secp256k1/" "-I" "depend/secp256k1/include" "-I" "depend/secp256k1/src" "-Wall" "-Wextra" "-Wno-unused-function" "-DSECP256K1_API=" "-DENABLE_MODULE_ECDH=1" "-DENABLE_MODULE_SCHNORRSIG=1" "-DENABLE_MODULE_EXTRAKEYS=1" "-DUSE_NUM_NONE=1" "-DUSE_FIELD_INV_BUILTIN=1" "-DUSE_SCALAR_INV_BUILTIN=1" "-DECMULT_GEN_PREC_BITS=4" "-DECMULT_WINDOW_SIZE=15" "-DUSE_EXTERNAL_DEFAULT_CALLBACKS=1" "-DENABLE_MODULE_RECOVERY=1" "-o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/contrib/lax_der_parsing.o" "-c" "depend/secp256k1/contrib/lax_der_parsing.c"
+exit status: 0
+running: "cc" "-O0" "-ffunction-sections" "-fdata-sections" "-fPIC" "-m64" "-I" "depend/secp256k1/" "-I" "depend/secp256k1/include" "-I" "depend/secp256k1/src" "-Wall" "-Wextra" "-Wno-unused-function" "-DSECP256K1_API=" "-DENABLE_MODULE_ECDH=1" "-DENABLE_MODULE_SCHNORRSIG=1" "-DENABLE_MODULE_EXTRAKEYS=1" "-DUSE_NUM_NONE=1" "-DUSE_FIELD_INV_BUILTIN=1" "-DUSE_SCALAR_INV_BUILTIN=1" "-DECMULT_GEN_PREC_BITS=4" "-DECMULT_WINDOW_SIZE=15" "-DUSE_EXTERNAL_DEFAULT_CALLBACKS=1" "-DENABLE_MODULE_RECOVERY=1" "-o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/src/precomputed_ecmult_gen.o" "-c" "depend/secp256k1/src/precomputed_ecmult_gen.c"
+exit status: 0
+running: "cc" "-O0" "-ffunction-sections" "-fdata-sections" "-fPIC" "-m64" "-I" "depend/secp256k1/" "-I" "depend/secp256k1/include" "-I" "depend/secp256k1/src" "-Wall" "-Wextra" "-Wno-unused-function" "-DSECP256K1_API=" "-DENABLE_MODULE_ECDH=1" "-DENABLE_MODULE_SCHNORRSIG=1" "-DENABLE_MODULE_EXTRAKEYS=1" "-DUSE_NUM_NONE=1" "-DUSE_FIELD_INV_BUILTIN=1" "-DUSE_SCALAR_INV_BUILTIN=1" "-DECMULT_GEN_PREC_BITS=4" "-DECMULT_WINDOW_SIZE=15" "-DUSE_EXTERNAL_DEFAULT_CALLBACKS=1" "-DENABLE_MODULE_RECOVERY=1" "-o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/src/precomputed_ecmult.o" "-c" "depend/secp256k1/src/precomputed_ecmult.c"
+exit status: 0
+running: "cc" "-O0" "-ffunction-sections" "-fdata-sections" "-fPIC" "-m64" "-I" "depend/secp256k1/" "-I" "depend/secp256k1/include" "-I" "depend/secp256k1/src" "-Wall" "-Wextra" "-Wno-unused-function" "-DSECP256K1_API=" "-DENABLE_MODULE_ECDH=1" "-DENABLE_MODULE_SCHNORRSIG=1" "-DENABLE_MODULE_EXTRAKEYS=1" "-DUSE_NUM_NONE=1" "-DUSE_FIELD_INV_BUILTIN=1" "-DUSE_SCALAR_INV_BUILTIN=1" "-DECMULT_GEN_PREC_BITS=4" "-DECMULT_WINDOW_SIZE=15" "-DUSE_EXTERNAL_DEFAULT_CALLBACKS=1" "-DENABLE_MODULE_RECOVERY=1" "-o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/src/secp256k1.o" "-c" "depend/secp256k1/src/secp256k1.c"
+exit status: 0
+AR_x86_64-unknown-linux-gnu = None
+AR_x86_64_unknown_linux_gnu = None
+HOST_AR = None
+AR = None
+running: "ar" "cq" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/libsecp256k1.a" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/contrib/lax_der_parsing.o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/src/precomputed_ecmult_gen.o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/src/precomputed_ecmult.o" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/depend/secp256k1/src/secp256k1.o"
+exit status: 0
+running: "ar" "s" "/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out/libsecp256k1.a"
+exit status: 0
+cargo:rustc-link-lib=static=secp256k1
+cargo:rustc-link-search=native=/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/build/secp256k1-sys-eccbef9a04924d26/out

@@ -1,0 +1,12 @@
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/rls/debug/deps/ink_engine-ea4f0480a640563e.rmeta: /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/lib.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/ext.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/test_api.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/chain_extension.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/database.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/exec_context.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/hashing.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/types.rs
+
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/rls/debug/deps/ink_engine-ea4f0480a640563e.d: /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/lib.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/ext.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/test_api.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/chain_extension.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/database.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/exec_context.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/hashing.rs /home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/types.rs
+
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/lib.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/ext.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/test_api.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/chain_extension.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/database.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/exec_context.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/hashing.rs:
+/home/yoni/.cargo/git/checkouts/ink-1add513eda8f5a89/159e7db/crates/engine/src/types.rs:
