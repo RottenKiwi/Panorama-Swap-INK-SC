@@ -7,5 +7,9 @@
 # Remove Cargo.lock when creating an executable, leave it for libraries
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
 #Cargo.lock
-/target/
-
+#/target/
+/home/yoni/CourseCryptoProjects/RustProjects/panorama_swap/trading_pair_psp22/target
+/home/yoni/CourseCryptoProjects/RustProjects/panorama_swap/trading_pair_azero/target
+/home/yoni/CourseCryptoProjects/RustProjects/panorama_swap/pair_creator/target
+/home/yoni/CourseCryptoProjects/RustProjects/panorama_swap/psp22/target
+/home/yoni/CourseCryptoProjects/RustProjects/panorama_swap/vesting_contract/target
