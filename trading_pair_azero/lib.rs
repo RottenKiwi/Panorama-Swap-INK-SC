@@ -13,18 +13,13 @@ pub use self::trading_pair_azero::{
 #[ink::contract]
 pub mod trading_pair_azero {
     
-
-    
     use ink_storage::traits::SpreadAllocate;
-
-    
     use openbrush::{
         contracts::{
 
             traits::psp22::PSP22Ref,
         },
     };
-    
     use ink_env::CallFlags;
 
     
@@ -79,12 +74,9 @@ pub mod trading_pair_azero {
            //init LP shares variable (shares to give to provider)
            let mut shares:Balance = 0;
            
-           
-
            //if its the pool first deposit
            if self.total_supply == 0 {
 
-               
                shares = 1000 * 10u128.pow(12);
 
            }
@@ -254,12 +246,9 @@ pub mod trading_pair_azero {
            //if its not the first LP deposit
            if self.total_supply > 0{
 
-
                //Shares to give to provider
-               shares = (a0_deposit_amount * self.total_supply) / self.get_a0_balance();
+               shares = (a0_deposit_amount * self.total_supply) / self.get_a0_balance();   
 
-
-             
            }
 
             shares
@@ -272,12 +261,14 @@ pub mod trading_pair_azero {
         pub fn get_price_for_one_psp22(&self)-> Balance {
             
 
-            //nominating 1 to base 12 (10^12)
-            let value = 1 * 10u128.pow(12);
-            //formula to calculate the price
-            let amount_out = (self.env().balance() * value) / (self.get_psp22_balance() + value);
+            let amount_in_with_fees = (1 *10u128.pow(12)) * (100 - self.fee);
 
-            return amount_out
+
+            let numerator = amount_in_with_fees * self.get_a0_balance();
+            let deno = (self.get_psp22_balance() * 100) + amount_in_with_fees;
+            let amount_out = numerator / deno;
+            
+            return amount_out    
 
         }
 

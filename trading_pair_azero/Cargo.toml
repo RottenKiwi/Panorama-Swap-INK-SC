@@ -35,6 +35,7 @@ crate-type = [
     "rlib",
 ]
 [profile.release]
+overflow-checks = false
 
 
 

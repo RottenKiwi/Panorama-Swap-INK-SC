@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ink_lang as ink;
-extern crate chrono;
+
 #[cfg(not(feature = "ink-as-dependency"))]
 
 
@@ -9,24 +9,16 @@ extern crate chrono;
 #[ink::contract]
 pub mod vesting_contract {
 
-
-    use chrono::prelude::*;
     use ink_storage::traits::SpreadAllocate;
-    
-    #[cfg(not(feature = "ink-as-dependency"))]
     use openbrush::{
         contracts::{
 
             traits::psp22::PSP22Ref,
         },
     };
-    use ink_env::call::FromAccountId;
-    
-    use ink_env::CallFlags;
-    use ink_prelude::vec::Vec;
-    use ink_prelude::string::ToString;
-    use ink_prelude::string::String;
-    use ink_prelude::borrow::ToOwned;
+
+   
+
     
     
     #[ink(storage)]
@@ -39,8 +31,6 @@ pub mod vesting_contract {
         panx_psp22: AccountId,
         //Vesting contract deploy date in tsp 
         started_date_in_timestamp:u64,
-        //Vesting contract deploy date in UTC
-        started_date_in_string: String,
         //Vesting contract PANX reserve
         panx_reserve: Balance,
         //Locked PANX amount for users
@@ -62,7 +52,7 @@ pub mod vesting_contract {
             
             let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
                 contract.panx_psp22 = panx_contract;  
-                contract.started_date_in_string = contract.get_current_timestamp_as_utc_string();
+                
                 contract.started_date_in_timestamp = contract.get_current_timestamp();
                 contract.manager = Self::env().caller();
                
@@ -92,10 +82,10 @@ pub mod vesting_contract {
            self.collected_tge.insert(account,&0);
            //Insert the current date as last redeem date for account.
            self.last_redeemed.insert(account, &self.get_current_timestamp());
-           
-           
-           
+              
         }
+
+
         ///function to collect TGE (10%) for account
         #[ink(message)]
         pub fn collect_tge_tokens(&mut self)  {
@@ -116,7 +106,7 @@ pub mod vesting_contract {
            let amount_to_give = account_balance - account_balance_with_tge_amount;
 
            //transfers the TGE tokens to caller
-           let response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]);
+           let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]);
            
            //deducts from overall vesting amount to give
            self.balances.insert(account, &(account_balance - amount_to_give));
@@ -206,13 +196,8 @@ pub mod vesting_contract {
             self.balances.insert(account, &(account_total_vesting_amount -  amount_redeemable_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
-            let response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]);
+            let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]);
 
-            
-
-
-
-        
         }
 
 
@@ -260,10 +245,10 @@ pub mod vesting_contract {
         }
         ///funtion to get the started date since issuing the vesting contract in timpstamp and str
         #[ink(message)]
-        pub fn get_started_date(&self) -> (u64,String) {
+        pub fn get_started_date(&self) -> u64 {
             let timestamp = self.started_date_in_timestamp;
-            let timestamp_str = &self.started_date_in_string;
-            (timestamp,timestamp_str.to_string())
+            
+            timestamp
         }
 
         
@@ -275,20 +260,13 @@ pub mod vesting_contract {
         }
 
         
-        ///function to get current timpstamp in seconds as str
-        #[ink(message)]
-        pub fn get_current_timestamp_as_utc_string(&self) -> String {
-            let bts = self.env().block_timestamp() / 1000;
-            
-            let naive_datetime = NaiveDateTime::from_timestamp(bts as i64, 0);
-            let datetime_again: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-            datetime_again.to_string()
-        }
-
 
         //funtion to change account tge status
         #[ink(message)]
         pub fn change_tge_status_to_0(&mut self,of: AccountId)  {
+
+           //Making sure caller is the manager (Only manager can add)
+           assert!(self.env().caller() == self.manager);
 
             self.collected_tge.insert(of, &(0));
 
@@ -299,6 +277,10 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn change_balance_amount(&mut self,of: AccountId,value:Balance)  {
 
+
+            //Making sure caller is the manager (Only manager can add)
+            assert!(self.env().caller() == self.manager);
+
             self.balances.insert(of, &(value));
 
             
@@ -307,6 +289,9 @@ pub mod vesting_contract {
         ///function to change balance amount for account
         #[ink(message)]
         pub fn change_daily_claim(&mut self,of: AccountId,value:Balance)  {
+
+            //Making sure caller is the manager (Only manager can add)
+            assert!(self.env().caller() == self.manager);
 
             self.panx_to_give_in_a_day.insert(of,&value);
 
