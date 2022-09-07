@@ -1,0 +1,12 @@
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/deps/libthiserror_impl-c6c0a5736c99e84a.so: /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/lib.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/ast.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/attr.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/expand.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/fmt.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/generics.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/prop.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/valid.rs
+
+/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/ink/release/deps/thiserror_impl-c6c0a5736c99e84a.d: /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/lib.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/ast.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/attr.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/expand.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/fmt.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/generics.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/prop.rs /home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/valid.rs
+
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/lib.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/ast.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/attr.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/expand.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/fmt.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/generics.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/prop.rs:
+/home/yoni/.cargo/registry/src/github.com-1ecc6299db9ec823/thiserror-impl-1.0.34/src/valid.rs:

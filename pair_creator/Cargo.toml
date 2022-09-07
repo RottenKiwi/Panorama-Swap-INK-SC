@@ -7,23 +7,20 @@ overflow-checks = false
 
 [dependencies]
 # Import of all ink! crates
-ink_primitives = { version = "~3.2.0", default-features = false }
-ink_metadata = { version = "~3.2.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "~3.2.0", default-features = false }
-ink_storage = { version = "~3.2.0", default-features = false }
-ink_lang = { version = "~3.2.0", default-features = false }
-ink_prelude = { version = "~3.2.0", default-features = false }
-ink_engine = { version = "~3.2.0", default-features = false, optional = true }
+ink_primitives = { version = "~3.3.0", default-features = false }
+ink_metadata = { version = "~3.3.0", default-features = false, features = ["derive"], optional = true }
+ink_env = { version = "~3.3.0", default-features = false }
+ink_storage = { version = "~3.3.0", default-features = false }
+ink_lang = { version = "~3.3.0", default-features = false }
+ink_prelude = { version = "~3.3.0", default-features = false }
+ink_engine = { version = "~3.3.0", default-features = false, optional = true }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
-openbrush = { version = "~2.0.0", default-features = false, features = ["psp22"] }
-num-traits =  { version = "0.2", default-features = false}
-num-integer =  { version = "0.1", default-features = false}
+openbrush = { version = "~2.2.0", default-features = false, features = ["psp22"] }
+
 trading_pair_azero = { path = "../trading_pair_azero",version="3.0.0",default-features = false, features = ["ink-as-dependency"] }
 trading_pair_psp22 = { path = "../trading_pair_psp22",version="3.0.0",default-features = false, features = ["ink-as-dependency"] }
-
-chrono =  { version = "0.4", default-features = false}
 
 
 
@@ -54,10 +51,8 @@ std = [
 
   # Brush dependency
   "openbrush/std",
-  "num-traits/std",
-  "num-integer/std",
-  "chrono/std",
   "trading_pair_azero/std",
+    "trading_pair_psp22/std"
 ]
 [workspace]
 memebers =[

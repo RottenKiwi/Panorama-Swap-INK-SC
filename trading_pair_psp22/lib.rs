@@ -369,6 +369,10 @@ pub mod trading_pair_psp22 {
             let user_current_balance = PSP22Ref::balance_of(&self.psp22_token1_address, self.env().caller());
             //making sure user has more or equal to the amount he transfers.
             assert!(user_current_balance >= psp22_token1_amount_to_swap);
+
+            let contract_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
+            //making sure trading pair contract has enough allowance.
+            assert!(contract_allowance >= psp22_token1_amount_to_swap);
             
             //the amount of A0 to give to the caller.
             let amount_out = self.get_est_price_psp22_token1_to_psp22_token2(psp22_token1_amount_to_swap);
@@ -403,6 +407,10 @@ pub mod trading_pair_psp22 {
             let user_current_balance = PSP22Ref::balance_of(&self.psp22_token2_address, self.env().caller());
             //making sure user has more or equal to the amount he transfers.
             assert!(user_current_balance >= psp22_token2_amount_to_swap);
+
+            let contract_allowance = PSP22Ref::allowance(&self.psp22_token2_address, self.env().caller(),Self::env().account_id());
+            //making sure trading pair contract has enough allowance.
+            assert!(contract_allowance >= psp22_token2_amount_to_swap);
 
 
             //the amount of A0 to give to the caller.

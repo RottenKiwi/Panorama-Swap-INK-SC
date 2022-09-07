@@ -118,6 +118,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "const_format"
+version = "0.2.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "939dc9e2eb9077e0679d2ce32de1ded8531779360b003b4a972a7a39ec263495"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef196d5d972878a48da7decb7686eded338b4858fbabeed513d63a7c98b2b82d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -257,18 +277,18 @@ dependencies = [
 
 [[package]]
 name = "ink_allocator"
-version = "3.3.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ed249de74298ed051ebcf6d3082b8d3dbd19cbc448d9ed3235d8a7b92713049"
+checksum = "a291f411e310b7a3bb01ce21102b8c0aea5b7b523e4bad0b40a8e55a76c58906"
 dependencies = [
  "cfg-if",
 ]
 
 [[package]]
 name = "ink_engine"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34a3accfd498e386e6a1dad78ca18ed8cbc699ec72f48931bd0d51cd7736e6fc"
+checksum = "075eab468da2937288ec484be920cb18614147003d7f1afbdfcfb190ed771c46"
 dependencies = [
  "blake2 0.10.4",
  "derive_more",
@@ -281,9 +301,9 @@ dependencies = [
 
 [[package]]
 name = "ink_env"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c68d27c8e99f67681862779f1238d13d2f6fae996a2140a0e52d1d25eeed8972"
+checksum = "271689b643d7ccf2bcd09d7ef07eda79cd3366ee042d5bbfcebf534b08da79d7"
 dependencies = [
  "arrayref",
  "blake2 0.10.4",
@@ -308,9 +328,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c18fdbce6774f2c4a1f5890412d3a5337e82c61b9e57a50295d91b314e264103"
+checksum = "62cf662fe6a130ea1ada3520142405e3ed521b79c35b7274cc95dd37bc833571"
 dependencies = [
  "derive_more",
  "ink_env",
@@ -324,9 +344,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang_codegen"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86c4cca39c31030b9ffdd6d0fecacec10158fde164868c4beb13399c95983b8d"
+checksum = "94dc22732ced2557f0411de5fa31d6fddc3878968041b699ae16ed1c390d2660"
 dependencies = [
  "blake2 0.10.4",
  "derive_more",
@@ -343,9 +363,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang_ir"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb68cdb4db44e7c088755857c93ec7a270e720bcd403c8caefa90100533759e5"
+checksum = "a089bcac8d7e6a487b7a18ea8a1d20eb540ed26657706ac221cc0e8239047e45"
 dependencies = [
  "blake2 0.10.4",
  "either",
@@ -357,9 +377,9 @@ dependencies = [
 
 [[package]]
 name = "ink_lang_macro"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c39fcbdaffd4126eb985fcb571ac302e966f8d14c5c2d3d64c330ef111a9d789"
+checksum = "1330da0b8007b86de94f95fbc74769c0461d3b078b291af5497771598db1c5b4"
 dependencies = [
  "ink_lang_codegen",
  "ink_lang_ir",
@@ -371,9 +391,9 @@ dependencies = [
 
 [[package]]
 name = "ink_metadata"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e00b1ea893ae80972db897ae2c9ce2d5292961a9c7b83714d3ee6b17461413e1"
+checksum = "d442f4f5dcbf120aa84cae9e399065ad99d143d5a920b06d3da286e91c03ec70"
 dependencies = [
  "derive_more",
  "impl-serde",
@@ -385,18 +405,18 @@ dependencies = [
 
 [[package]]
 name = "ink_prelude"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17443d7d15df552eca048ba3b7ba8551fff3b0d529779bd3a64afc1be19ba65a"
+checksum = "e38d71af62cfec3425727d28665a947d636c3be6ae71ac3a79868ef8a08633f3"
 dependencies = [
  "cfg-if",
 ]
 
 [[package]]
 name = "ink_primitives"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "538ad6c2050f950099e6d0202c296d174854f956d2d815e608c24d9db214ae4f"
+checksum = "ea7afd5330a9d3be1533222a48b8ab44b3a3356a5e6bb090bff0790aa562b418"
 dependencies = [
  "cfg-if",
  "ink_prelude",
@@ -406,9 +426,9 @@ dependencies = [
 
 [[package]]
 name = "ink_storage"
-version = "3.2.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d1b226ba92ffa9dca87150bb0e472050db540d3af4ce1323311154971652d69"
+checksum = "be827b98c102c413b2309075f0835a9bb8c6325fc6aa09e66963424db7a8bcb5"
 dependencies = [
  "array-init",
  "cfg-if",
@@ -424,9 +444,9 @@ dependencies = [
 
 [[package]]
 name = "ink_storage_derive"
-version = "3.3.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afb68e24e93e8327dda1924868d7ee4dbe01e1ed2b392f28583caa96809b585c"
+checksum = "8ced452d5d0b2268b1257ffd2ec73cf9c3b4fba5f3632f185a03aafec8888439"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -478,9 +498,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openbrush"
-version = "2.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8e2266b53726a491a5bbe80a4eb9159a198a3964995955faff8fe69eaf223a8"
+checksum = "184f8ffa2e7f0356e0333dea8a390e84c8d26fc478f12ab50a7086549748eb50"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -496,9 +516,9 @@ dependencies = [
 
 [[package]]
 name = "openbrush_contracts"
-version = "2.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b57f651be908e27055c3fdc938bcad6fd9f4be909d100c5aa7fb8cb544354532"
+checksum = "2c4a3712ccff1d98b6d8fc88d1fc567cb50d237adfb293a43c6a2e4245d25d33"
 dependencies = [
  "ink_env",
  "ink_lang",
@@ -506,44 +526,34 @@ dependencies = [
  "ink_prelude",
  "ink_primitives",
  "ink_storage",
- "openbrush_contracts_derive",
  "openbrush_lang",
  "parity-scale-codec",
  "scale-info",
 ]
 
 [[package]]
-name = "openbrush_contracts_derive"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e1d363191667d8826583b65e4ae7e8f776758b93fb5cbd973915ad78dc0fc46"
-dependencies = [
- "openbrush_lang",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "openbrush_lang"
-version = "2.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e7600bb8b23122055531a83fe64a422d7a56e9bb2ad8a58ffc9bafc4075c85a"
+checksum = "8012cc1cb15cdabef9e92008ca1ad027a6d29a854b9a8fbf9dda8ac91d434e48"
 dependencies = [
+ "const_format",
  "ink_env",
  "ink_lang",
+ "ink_metadata",
  "ink_primitives",
  "ink_storage",
  "openbrush_lang_macro",
  "parity-scale-codec",
  "scale-info",
+ "sha2-const",
 ]
 
 [[package]]
 name = "openbrush_lang_codegen"
-version = "2.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ddc00cddc3e90063d39fba93f1d60c68804d12615a7923896a68408c044bf84"
+checksum = "416acd0c65f07be39e305b6d7f68336313297dd7de6694d483282a0d9d5f707b"
 dependencies = [
  "blake2 0.9.2",
  "cargo_metadata",
@@ -561,9 +571,9 @@ dependencies = [
 
 [[package]]
 name = "openbrush_lang_macro"
-version = "2.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aef1311679e60912937b80da7e263455dd1c02ff3c03247b8d7e06c43531a54d"
+checksum = "b49d85890893146d270bdb10e7fb1f94a2a93b67f7c8feb76c2e124449457ce6"
 dependencies = [
  "openbrush_lang_codegen",
  "proc-macro2",
@@ -722,18 +732,18 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
-version = "0.22.1"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26947345339603ae8395f68e2f3d85a6b0a8ddfe6315818e80b8504415099db0"
+checksum = "b7649a0b3ffb32636e60c7ce0d70511eda9c52c658cd0634e194d5a19943aeff"
 dependencies = [
  "secp256k1-sys",
 ]
 
 [[package]]
 name = "secp256k1-sys"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07b5b9d7322572e1f3aeed208668ce87789b3645dbb73082c5ce99a004103a35"
+checksum = "7058dc8eaf3f2810d7828680320acda0b25a288f6d288e19278e249bbf74226b"
 dependencies = [
  "cc",
 ]
@@ -798,6 +808,12 @@ dependencies = [
  "cpufeatures",
  "digest 0.10.3",
 ]
+
+[[package]]
+name = "sha2-const"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5edcd790916d95ff81bdc1505b09c74d30d47a755929cc8c71c59cbbfa99f91b"
 
 [[package]]
 name = "sha3"

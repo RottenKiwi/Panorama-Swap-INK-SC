@@ -367,6 +367,10 @@ pub mod trading_pair_azero {
             let user_current_balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
             //making sure user has more or equal to the amount he transfers.
             assert!(user_current_balance >= amount_to_transfer);
+
+            let contract_allowance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
+            //making sure trading pair contract has enough allowance.
+            assert!(contract_allowance >= amount_to_transfer);
             
             //the amount of A0 to give to the caller.
             let amount_out = self.get_est_price_psp22_to_a0(amount_to_transfer);

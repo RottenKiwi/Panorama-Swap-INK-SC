@@ -169,25 +169,8 @@ pub mod vesting_contract {
             //caller total locked PANX 
             let account_total_vesting_amount = self.get_account_total_vesting_amount(account);
 
-        
-            //timestamp for the last redeem data of caller
-            let last_redeemed = self.last_redeemed.get(account).unwrap_or(0);
-            //PANX amount to give caller in each passing day
-            let panx_to_give_each_day = self.panx_to_give_in_a_day.get(account).unwrap_or(0);
-            //difference between last redeem tsp with the current tsp
-            let days_diff = (current_tsp - last_redeemed) / 86400;
-            //making sure more then 24 hours has passed
-            assert!(days_diff > 0);
-            //making sure caller has more then 0 locked PANX
-            assert!(account_total_vesting_amount >= 0);
-            //amount to give to caller 
-            let mut amount_redeemable_amount = panx_to_give_each_day * days_diff as u128;
 
-            //if account has less tokens from the daily amount, give him the rest of tokens
-            if amount_redeemable_amount > account_total_vesting_amount{
-
-                amount_redeemable_amount = account_total_vesting_amount;
-            }
+            let mut amount_redeemable_amount = self.get_redeemable_amount();
 
             //Making sure to set his last redeem to current timestamp
             self.last_redeemed.insert(account,&current_tsp);
