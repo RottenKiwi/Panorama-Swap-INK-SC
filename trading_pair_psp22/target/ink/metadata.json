@@ -1,6 +1,6 @@
 {
   "source": {
-    "hash": "0xf3ea83a4e749707371996bdacef99f92583d7b6147c7e30798461cb81a8de217",
+    "hash": "0x41127d4820321b4cdd6a04bf44e9779cc12bc6140f4881d1a9e0b4009a50f0f3",
     "language": "ink! 3.3.1",
     "compiler": "rustc 1.61.0-nightly"
   },
@@ -41,6 +41,15 @@
                   "u128"
                 ],
                 "type": 4
+              }
+            },
+            {
+              "label": "panx_contract",
+              "type": {
+                "displayName": [
+                  "AccountId"
+                ],
+                "type": 1
               }
             }
           ],
@@ -736,6 +745,15 @@
               }
             },
             "name": "lp_providers"
+          },
+          {
+            "layout": {
+              "cell": {
+                "key": "0x0a00000000000000000000000000000000000000000000000000000000000000",
+                "ty": 1
+              }
+            },
+            "name": "panx_contract"
           }
         ]
       }

@@ -46,18 +46,21 @@ pub mod trading_pair_azero {
         balances: ink_storage::Mapping<AccountId, Balance>,
         //Hashmap of LP providers
         lp_providers: ink_storage::Mapping<AccountId, Balance>,
+        //PANX contract address
+        panx_contract: AccountId,
     }
 
 
     impl TradingPairAzero {
         /// Creates a new instance of this contract.
         #[ink(constructor)]
-        pub fn new(psp22_contract:AccountId, fee: u128) -> Self {
+        pub fn new(psp22_contract:AccountId, fee: u128,panx_contract:AccountId) -> Self {
             
             let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
                 contract.psp22_token = psp22_contract;  
                 contract.manager = Self::env().caller();
-                contract.fee = fee
+                contract.fee = fee;
+                contract.panx_contract = panx_contract;
                
             });
             
@@ -108,6 +111,11 @@ pub mod trading_pair_azero {
 
            //making sure user current balance is greater than the deposit amount.
            assert!(user_current_balance >= psp22_deposit_amount);
+
+           let contract_allowance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
+           //making sure trading pair contract has enough allowance.
+           assert!(contract_allowance >= psp22_deposit_amount);
+
 
 
            //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
@@ -276,8 +284,25 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_est_price_psp22_to_a0(&self, amount_in: Balance)-> Balance {
 
-            //calc the amount_in with current fees to transfer to the LP providers.
-            let amount_in_with_fees = amount_in * (100 - self.fee);
+            //fetching user current PSP22 balance
+            let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+
+            //Init variable
+            let mut amount_in_with_fees = amount_in * (100 - self.fee);
+
+            //validating if user has more than 1000 PANX
+            if user_current_balance >= 1000 * 10u128.pow(12){
+
+               if self.fee == 1 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee / 2));
+               }
+
+               if self.fee > 1 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee - 1));
+               }
+            }
+
+
 
 
             let numerator = amount_in_with_fees * self.get_a0_balance();
@@ -295,8 +320,23 @@ pub mod trading_pair_azero {
             //We need to calc the A0 reserve before swapping.
             let a0_reserve_before = self.get_a0_balance() - ao_amount_to_tranfer;
 
-            //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees = ao_amount_to_tranfer * (100 - self.fee);
+            //fetching user current PSP22 balance
+            let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+
+            //Init variable
+            let mut amount_in_with_fees = ao_amount_to_tranfer * (100 - self.fee);
+
+            //validating if user has more than 1000 PANX
+            if user_current_balance >= 1000 * 10u128.pow(12){
+
+               if self.fee == 1 {
+                    amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 2));
+               }
+
+               if self.fee > 1 {
+                    amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee - 1));
+               }
+            }
 
 
             let numertraor = amount_in_with_fees * self.get_psp22_balance();

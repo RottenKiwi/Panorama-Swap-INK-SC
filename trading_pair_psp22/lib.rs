@@ -56,19 +56,22 @@ pub mod trading_pair_psp22 {
         balances: ink_storage::Mapping<AccountId, Balance>,
         //Hashmap of LP providers
         lp_providers: ink_storage::Mapping<AccountId, Balance>,
+        //PANX contract address
+        panx_contract: AccountId,
     }
 
 
     impl TradingPairPsp22 {
         /// Creates a new instance of this contract.
         #[ink(constructor)]
-        pub fn new(psp22_token1_contract:AccountId,psp22_token2_contract:AccountId, fee: u128) -> Self {
+        pub fn new(psp22_token1_contract:AccountId,psp22_token2_contract:AccountId, fee: u128,panx_contract:AccountId) -> Self {
             
             let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
                 contract.psp22_token1_address = psp22_token1_contract;  
                 contract.psp22_token2_address = psp22_token2_contract; 
                 contract.manager = Self::env().caller();
-                contract.fee = fee
+                contract.fee = fee;
+                contract.panx_contract = panx_contract;
                
             });
             
@@ -114,7 +117,17 @@ pub mod trading_pair_psp22 {
 
            assert!(user_current_balance_token1 >= psp22_token1_deposit_amount);
 
-           
+           let user_current_balance_token2 = PSP22Ref::balance_of(&self.psp22_token2_address, self.env().caller());
+
+           assert!(user_current_balance_token2 >= psp22_token2_deposit_amount);
+
+           let contract_token1_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
+           //making sure trading pair contract has enough allowance.
+           assert!(contract_token1_allowance >= psp22_token1_deposit_amount);
+
+           let contract_token2_allowance = PSP22Ref::allowance(&self.psp22_token2_address, self.env().caller(),Self::env().account_id());
+           //making sure trading pair contract has enough allowance.
+           assert!(contract_token2_allowance >= psp22_token2_deposit_amount);
 
            //cross contract call to psp22 token1 contract to transfer psp22 token1 to the Pair contract
            PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
@@ -294,8 +307,25 @@ pub mod trading_pair_psp22 {
         #[ink(message)]
         pub fn get_est_price_psp22_token1_to_psp22_token2(&self, amount_in: Balance)-> Balance {
 
-            //calc the amount_in with current fees to transfer to the LP providers.
-            let amount_in_with_fees = amount_in * (100 - self.fee);
+
+            //fetching user current PSP22 balance
+            let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+
+            //Init variable
+            let mut amount_in_with_fees = amount_in * (100 - self.fee);
+
+            //validating if user has more than 1000 PANX
+            if user_current_balance >= 1000 * 10u128.pow(12){
+
+               if self.fee == 1 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee / 2));
+               }
+
+               if self.fee > 1 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee - 1));
+               }
+            }
+
 
 
             let numerator = amount_in_with_fees * self.get_psp22_token2_reserve();
@@ -311,8 +341,24 @@ pub mod trading_pair_psp22 {
         #[ink(message)]
         pub fn get_est_price_psp22_token2_to_psp22_token1(&self, amount_in: Balance)-> Balance {
 
-            //calc the amount_in with current fees to transfer to the LP providers.           
-            let amount_in_with_fees = amount_in * (100 - self.fee);
+            //fetching user current PSP22 balance
+            let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+
+            //Init variable
+            let mut amount_in_with_fees = amount_in * (100 - self.fee);
+
+            //validating if user has more than 1000 PANX
+            if user_current_balance >= 1000 * 10u128.pow(12){
+
+               if self.fee == 1 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee / 2));
+               }
+
+               if self.fee > 1 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee - 1));
+               }
+            }
+
 
             let numerator = amount_in_with_fees * self.get_psp22_token1_reserve();
             let deno = (self.get_psp22_token2_reserve() * 100) + amount_in_with_fees;
