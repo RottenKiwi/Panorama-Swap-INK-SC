@@ -30,22 +30,14 @@ pub mod trading_pair_azero {
 
         //Number of overall transactions (Not including LP provision)
         transasction_number: i64,
-        //Deployer address
-        manager: AccountId,
         //PSP22 contract address
         psp22_token: AccountId,
-        //A0 coin reserve
-        a0_reserve:Balance,
-        //PSP22 token reserve
-        psp22_reserve: Balance,
         //LP fee
         fee: u128,
         //Total LP token supply
         total_supply: Balance,
         //LP token balances of LP providers
         balances: ink_storage::Mapping<AccountId, Balance>,
-        //Hashmap of LP providers
-        lp_providers: ink_storage::Mapping<AccountId, Balance>,
         //PANX contract address
         panx_contract: AccountId,
     }
@@ -58,7 +50,6 @@ pub mod trading_pair_azero {
             
             let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
                 contract.psp22_token = psp22_contract;  
-                contract.manager = Self::env().caller();
                 contract.fee = fee;
                 contract.panx_contract = panx_contract;
                
@@ -125,8 +116,6 @@ pub mod trading_pair_azero {
 
            //caller current shares (if any)
            let current_shares = self.get_lp_token_of(self.env().caller());
-           //adding caller to LP providers
-           self.lp_providers.insert(self.env().caller(), &(current_shares + shares));
            //increasing LP balance of caller (mint)
            self.balances.insert(self.env().caller(), &(current_shares + shares));
            //adding to over LP tokens (mint)
@@ -293,7 +282,7 @@ pub mod trading_pair_azero {
             //validating if user has more than 1000 PANX
             if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee == 1 {
+               if self.fee <= 1 {
                     amount_in_with_fees = amount_in * (100 - (self.fee / 2));
                }
 
@@ -329,7 +318,7 @@ pub mod trading_pair_azero {
             //validating if user has more than 1000 PANX
             if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee == 1 {
+               if self.fee <= 1 {
                     amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 2));
                }
 
