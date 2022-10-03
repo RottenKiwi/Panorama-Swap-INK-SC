@@ -1,1 +1,0 @@
-/home/yoni/CourseCryptoProjects/RustProjects/swapv1/target/ink/wasm32-unknown-unknown/release/swapv1.wasm: /home/yoni/CourseCryptoProjects/RustProjects/swapv1/erc20/lib.rs /home/yoni/CourseCryptoProjects/RustProjects/swapv1/lib.rs

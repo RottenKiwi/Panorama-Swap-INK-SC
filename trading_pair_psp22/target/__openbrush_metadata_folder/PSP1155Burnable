@@ -1,1 +1,0 @@
-"pub trait PSP1155Burnable\n{\n    #[doc = \" Destroys `amount` tokens of token type `id` from `from`\"]\n    #[doc = \"\"] #[doc = \" See [`PSP1155::_burn_from`].\"] #[ink(message)]\n    #[ink(selector = 2272861627u32)] fn\n    burn(& mut self, from : AccountId, ids_amounts : Vec < (Id, Balance) >) ->\n    Result < (), PSP1155Error > ;\n}"

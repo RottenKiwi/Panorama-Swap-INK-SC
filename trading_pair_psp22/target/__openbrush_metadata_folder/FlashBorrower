@@ -1,1 +1,0 @@
-"#[doc =\n\" Flash Borrower implementation as proposed in https://eips.ethereum.org/EIPS/eip-3156)\"]\npub trait FlashBorrower\n{\n    #[ink(message)] #[ink(selector = 1548055508u32)] fn\n    on_flashloan(& mut self, initiator : AccountId, token : AccountId, amount\n    : Balance, fee : Balance, data : Vec < u8 >,) -> Result < (),\n    FlashBorrowerError > ;\n}"

@@ -1,1 +1,0 @@
-"pub trait PSP1155Metadata\n{\n    #[doc = \" Returns the uri for token type of id.\"] #[ink(message)]\n    #[ink(selector = 875598917u32)] fn uri(& self, _id : Id) -> Option <\n    String > ;\n}"

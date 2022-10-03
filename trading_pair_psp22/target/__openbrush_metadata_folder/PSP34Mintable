@@ -1,1 +1,0 @@
-"pub trait PSP34Mintable\n{\n    #[doc = \" Mints a new token with `id`.\"] #[doc = \"\"]\n    #[doc = \" See [`PSP34::_mint`].\"] #[ink(message)]\n    #[ink(selector = 1816261356u32)] fn\n    mint(& mut self, account : AccountId, id : Id) -> Result < (), PSP34Error\n    > ;\n}"

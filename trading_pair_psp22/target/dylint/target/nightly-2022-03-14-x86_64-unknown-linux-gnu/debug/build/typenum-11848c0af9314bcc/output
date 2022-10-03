@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/dylint/target/nightly-2022-03-14-x86_64-unknown-linux-gnu/debug/build/typenum-11848c0af9314bcc/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/home/yoni/CourseCryptoProjects/RustProjects/panorama/trading_pair_psp22/target/dylint/target/nightly-2022-03-14-x86_64-unknown-linux-gnu/debug/build/typenum-11848c0af9314bcc/out/op.rs

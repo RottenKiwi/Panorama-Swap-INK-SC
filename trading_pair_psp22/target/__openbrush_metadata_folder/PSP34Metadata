@@ -1,1 +1,0 @@
-"pub trait PSP34Metadata\n{\n    #[doc = \" Returns the attribute of `id` for the given `key`.\"] #[doc = \"\"]\n    #[doc =\n    \" If `id` is a collection id of the token, it returns attributes for collection.\"]\n    #[ink(message)] #[ink(selector = 4053616849u32)] fn\n    get_attribute(& self, id : Id, key : Vec < u8 >) -> Option < Vec < u8 > >\n    ;\n}"

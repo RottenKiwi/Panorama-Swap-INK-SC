@@ -1,1 +1,0 @@
-"#[doc =\n\" Contract trait, which allows children to implement an emergency stop\"]\n#[doc = \" mechanism that an authorized account can trigger.\"] pub trait\nPausable\n{\n    #[doc = \" Returns true if the contract is paused, and false otherwise.\"]\n    #[ink(message)] #[ink(selector = 3508784657u32)] fn paused(& self) -> bool\n    ;\n}"

@@ -1,1 +1,0 @@
-"pub trait PSP35Metadata\n{\n    #[ink(message)] #[ink(selector = 3236655474u32)] fn\n    get_attribute(& self, id : Id, key : Vec < u8 >) -> Option < Vec < u8 > >\n    ;\n}"
