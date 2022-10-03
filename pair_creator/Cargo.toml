@@ -17,7 +17,6 @@ ink_engine = { version = "~3.3.0", default-features = false, optional = true }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
-openbrush = { version = "~2.2.0", default-features = false, features = ["psp22"] }
 
 trading_pair_azero = { path = "../trading_pair_azero",version="0.8.0",default-features = false, features = ["ink-as-dependency"] }
 trading_pair_psp22 = { path = "../trading_pair_psp22",version="0.8.0",default-features = false, features = ["ink-as-dependency"] }
@@ -49,8 +48,7 @@ std = [
   "scale-info",
   "scale-info/std",
 
-  # Brush dependency
-  "openbrush/std",
+
   "trading_pair_azero/std",
     "trading_pair_psp22/std"
 ]

@@ -1,12 +1,12 @@
 {
   "source": {
-    "hash": "0x3a52acc825caeab14289501981b3e36fbe14260a28f3f298c38b2b0b057ca52f",
+    "hash": "0x85f0d180b355a29c2dc26c8dd524cc2fa6b0e1e82b7add65cd8b82be40b0b069",
     "language": "ink! 3.3.1",
     "compiler": "rustc 1.61.0-nightly"
   },
   "contract": {
     "name": "trading_pair_psp22",
-    "version": "3.0.0",
+    "version": "0.8.0",
     "authors": [
       "Yonatan Hornstein Yonatanhornstein@gmail.com"
     ]
