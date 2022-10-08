@@ -301,19 +301,19 @@ pub mod trading_pair_psp22 {
             let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
             //Init variable
-            let mut amount_in_with_fees = amount_in * (100 - self.fee);
+            let mut amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
-            //validating if user has more than 1000 PANX
-            if user_current_balance >= 1000 * 10u128.pow(12){
+           //validating if user has more than 1000 PANX
+           if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee <= 1 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee / 2));
-               }
-
-               if self.fee > 1 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee - 1));
-               }
+            if self.fee  <= 1400000000000 {
+                 amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) / 2));
             }
+
+            if self.fee  > 1400000000000 {
+                 amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) - 1));
+            }
+         }
 
 
 
@@ -334,17 +334,17 @@ pub mod trading_pair_psp22 {
             let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
             //Init variable
-            let mut amount_in_with_fees = amount_in * (100 - self.fee);
+            let mut amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
             //validating if user has more than 1000 PANX
             if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee <= 1 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee / 2));
+               if self.fee <= 1400000000000 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
                }
 
-               if self.fee > 1 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee - 1));
+               if self.fee > 1400000000000 {
+                    amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
                }
             }
 
@@ -366,7 +366,7 @@ pub mod trading_pair_psp22 {
             let psp22_token2_amount_out = self.get_est_price_psp22_token1_to_psp22_token2(amount_in);
 
             //calc the amount_in with current fees to transfer to the LP providers.
-            let amount_in_with_fees = amount_in * (100 - self.fee);
+            let amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
             let numerator = amount_in_with_fees * (self.get_psp22_token2_reserve() - psp22_token2_amount_out );
             let deno = ((self.get_psp22_token1_reserve() + amount_in_with_fees ) * 100) + amount_in_with_fees;
@@ -384,7 +384,7 @@ pub mod trading_pair_psp22 {
             let psp22_token1_amount_out = self.get_est_price_psp22_token2_to_psp22_token1(amount_in);
 
             //calc the amount_in with current fees to transfer to the LP providers.
-            let amount_in_with_fees = amount_in * (100 - self.fee);
+            let amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
             let numerator = amount_in_with_fees * (self.get_psp22_token1_reserve() - psp22_token1_amount_out );
             let deno = ((self.get_psp22_token2_reserve() + amount_in_with_fees ) * 100) + amount_in_with_fees;

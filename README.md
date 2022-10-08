@@ -12,15 +12,17 @@ We are following and implementing OpenBrush's PSP22 protocol and standard.
 
 #### Contracts :
 
-1. pair_creation - a contract to deploy and create trading_pair_azero and trading_pair_psp22 in order for users to create their own liquidity pool and trading pair. 
+1. pair_creation - a contract to deploy and create trading_pair_azero and trading_pair_psp22 in order for users to create their own liquidity pools and trading pairs. 
 
-2. psp22 - a contract that follows and implements OpenBrush's PSP22 protocol and standard to create PSP22 tokens with metadata (token name and symbol).
+2. psp22 - a contract that implements OpenBrush's PSP22 standard to create PSP22 tokens with metadata extension (token name and symbol).
 
-3. trading_pair_azero - this contract is used in creating and deploying AZERO/PSP22 trading pairs and pools.
+3. trading_pair_azero - this contract is used in deploying AZERO/PSP22 trading pairs and pools.
 
-4. trading_pair_psp22 - this contract is used in creating and deploying PSP22/PSP22 trading pairs and pools.
+4. trading_pair_psp22 - this contract is used in deploying PSP22/PSP22 trading pairs and pools.
 
-4. vesting_contract - this contract contains the all the logic for the vesting program.
+4. vesting_contract - this contract contains all the logic for the vesting program.
+
+5. airdrop_contract - this contract contains all the logic for the airdrop event.
 
 
 #### Useful link:
@@ -28,6 +30,8 @@ We are following and implementing OpenBrush's PSP22 protocol and standard.
 1. Panorama Swap DAPP (currently running on Aleph Zero testnet): [https://panoramaswap.app/](https://panoramaswap.app/).
 
 2. Panorama Swap homepage: [https://panoramaswap.com/](https://panoramaswap.com/).
+
+3. Panorama Swap gitbook: [https://panoramaswap-1.gitbook.io/panorama-swaps-documentation/](https://panoramaswap-1.gitbook.io/panorama-swaps-documentation/).
 
 3. Aleph Zero homepage: [https://alephzero.org/](https://alephzero.org/).
 

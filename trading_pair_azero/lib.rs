@@ -258,7 +258,7 @@ pub mod trading_pair_azero {
         pub fn get_price_for_one_psp22(&self)-> Balance {
             
 
-            let amount_in_with_fees = (1 *10u128.pow(12)) * (100 - self.fee);
+            let amount_in_with_fees = (1 *10u128.pow(12)) * (100 - (self.fee / 10u128.pow(12)));
 
 
             let numerator = amount_in_with_fees * self.get_a0_balance();
@@ -277,19 +277,20 @@ pub mod trading_pair_azero {
             let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
             //Init variable
-            let mut amount_in_with_fees = amount_in * (100 - self.fee);
+            let mut amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
+
 
             //validating if user has more than 1000 PANX
             if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee <= 1 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee / 2));
-               }
-
-               if self.fee > 1 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee - 1));
-               }
-            }
+                if self.fee  <= 1400000000000 {
+                     amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) / 2));
+                }
+ 
+                if self.fee  > 1400000000000 {
+                     amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) - 1));
+                }
+             }
 
 
 
@@ -313,17 +314,17 @@ pub mod trading_pair_azero {
             let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
             //Init variable
-            let mut amount_in_with_fees = ao_amount_to_tranfer * (100 - self.fee);
+            let mut amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 10u128.pow(12)));
 
             //validating if user has more than 1000 PANX
             if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee <= 1 {
-                    amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 2));
+               if self.fee  <= 1400000000000 {
+                    amount_in_with_fees = ao_amount_to_tranfer * (100 - ((self.fee / 10u128.pow(12)) / 2));
                }
 
-               if self.fee > 1 {
-                    amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee - 1));
+               if self.fee  > 1400000000000 {
+                    amount_in_with_fees = ao_amount_to_tranfer * (100 - ((self.fee / 10u128.pow(12)) - 1));
                }
             }
 
@@ -341,7 +342,7 @@ pub mod trading_pair_azero {
         pub fn get_est_price_a0_to_psp22(&self,ao_amount_to_tranfer:Balance) -> Balance { 
 
             //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees = ao_amount_to_tranfer * (100 - self.fee);
+            let amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 10u128.pow(12)));
 
             let numertraor = amount_in_with_fees * self.get_psp22_balance();
             let deno = (self.get_a0_balance() * 100) + amount_in_with_fees;
@@ -359,7 +360,7 @@ pub mod trading_pair_azero {
 
 
             //Reduct LP fee from the amount in
-            let amount_in_with_fees = amount_in * (100 - self.fee);
+            let amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
             let numerator = amount_in_with_fees * (self.get_a0_balance() - amount_out);
             let deno = ((self.get_psp22_balance() + amount_in) * 100) + amount_in_with_fees;
@@ -376,7 +377,7 @@ pub mod trading_pair_azero {
             let amount_out = self.get_est_price_a0_to_psp22(a0_to_trasfer);
 
             //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees = a0_to_trasfer * (100 - self.fee);
+            let amount_in_with_fees = a0_to_trasfer * (100 - (self.fee / 10u128.pow(12)));
 
             let numertraor = amount_in_with_fees * (self.get_psp22_balance() - amount_out);
             let deno = ((self.get_a0_balance() + a0_to_trasfer)* 100) + amount_in_with_fees;
