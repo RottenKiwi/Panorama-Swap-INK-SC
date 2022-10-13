@@ -7,7 +7,7 @@ use ink_lang as ink;
 
 
 #[ink::contract]
-pub mod stacking_contract {
+pub mod staking_contract {
 
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
@@ -23,13 +23,13 @@ pub mod stacking_contract {
     
     #[ink(storage)]
     #[derive(SpreadAllocate)]
-    pub struct StackingContract {
+    pub struct StakingContract {
         
         //Deployer address 
         manager: AccountId,
         //PANX psp22 contract address
         panx_psp22: AccountId,
-        //Stacking contract deploy date in tsp 
+        //Staking contract deploy date in tsp 
         started_date_in_timestamp:u64,
         //Locked PANX amount for users
         balances: ink_storage::Mapping<AccountId, Balance>,
@@ -41,7 +41,7 @@ pub mod stacking_contract {
 
     }
 
-    impl StackingContract {
+    impl StakingContract {
         /// Creates a new instance of this contract.
         #[ink(constructor)]
         pub fn new(panx_contract:AccountId) -> Self {
@@ -59,9 +59,9 @@ pub mod stacking_contract {
         }
 
 
-        ///Function to add account into the stacking program
+        ///Function to add account into the staking program
         #[ink(message)]
-        pub fn add_to_stacking(&mut self,account:AccountId,panx_to_lock:Balance)  {
+        pub fn add_to_staking(&mut self,account:AccountId,panx_to_lock:Balance)  {
 
            //fetching user current PSP22 balance
            let user_current_panx_balance = PSP22Ref::balance_of(&self.panx_psp22, self.env().caller());
@@ -76,7 +76,7 @@ pub mod stacking_contract {
 
                assert!(contract_allowance >= panx_to_lock);
 
-               //transfers PANX from account to stacking contract
+               //transfers PANX from account to staking contract
                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
                
                let new_balance = account_locked_balance + panx_to_lock;
@@ -111,7 +111,7 @@ pub mod stacking_contract {
 
                 assert!(contract_allowance >= panx_to_lock);
 
-                //transfers PANX from account to stacking contract
+                //transfers PANX from account to staking contract
                 PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
                 
                 let new_balance = account_locked_balance + panx_to_lock;
@@ -254,9 +254,9 @@ pub mod stacking_contract {
            account_balance
 
         }
-        ///funtion to get stacking contract PANX reserve
+        ///funtion to get staking contract PANX reserve
         #[ink(message)]
-        pub fn get_stacking_contract_panx_reserve(&self)->Balance  {
+        pub fn get_staking_contract_panx_reserve(&self)->Balance  {
         
             let balance1 = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
             balance1
@@ -264,7 +264,7 @@ pub mod stacking_contract {
 
         }
 
-        ///funtion to get the started date since issuing the stacking contract in timpstamp and str
+        ///funtion to get the started date since issuing the staking contract in timpstamp and str
         #[ink(message)]
         pub fn get_started_date(&self) -> u64 {
             let timestamp = self.started_date_in_timestamp;
