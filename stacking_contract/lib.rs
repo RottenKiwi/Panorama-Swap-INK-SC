@@ -7,7 +7,7 @@ use ink_lang as ink;
 
 
 #[ink::contract]
-pub mod vesting_contract {
+pub mod stacking_contract {
 
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
@@ -17,24 +17,22 @@ pub mod vesting_contract {
         },
     };
 
-   
+    use ink_env::CallFlags;
 
     
     
     #[ink(storage)]
     #[derive(SpreadAllocate)]
-    pub struct VestingContract {
+    pub struct StackingContract {
         
         //Deployer address 
         manager: AccountId,
         //PANX psp22 contract address
         panx_psp22: AccountId,
-        //Vesting contract deploy date in tsp 
+        //Stacking contract deploy date in tsp 
         started_date_in_timestamp:u64,
         //Locked PANX amount for users
         balances: ink_storage::Mapping<AccountId, Balance>,
-        // 0 didnt collect, 1 did collect.
-        collected_tge: ink_storage::Mapping<AccountId, i64>,
         //panx reward for a day, for each account
         panx_to_give_in_a_day: ink_storage::Mapping<AccountId, Balance>,
         //last time account redeemed
@@ -43,7 +41,7 @@ pub mod vesting_contract {
 
     }
 
-    impl VestingContract {
+    impl StackingContract {
         /// Creates a new instance of this contract.
         #[ink(constructor)]
         pub fn new(panx_contract:AccountId) -> Self {
@@ -57,64 +55,90 @@ pub mod vesting_contract {
             });
             
             me
-            
-        }
-
-
-        ///adding seed events participants to vesting contract and their PANX vesting allocation
-        ///Only manager can use this function
-        #[ink(message)]
-        pub fn add_to_vesting(&mut self,account:AccountId,panx_to_give_overall:Balance)  {
-
-           //Making sure caller is the manager (Only manager can add)
-           assert!(self.env().caller() == self.manager);
-           //get current account balance (If any)
-           let account_balance = self.balances.get(&account).unwrap_or(0);
-           //add PANX allocation to account
-           self.balances.insert(account, &(account_balance + panx_to_give_overall));
-           //calc how many tokens to give in a day
-           let amount_to_give_each_day = panx_to_give_overall / 365  ;
-           //insert the daily amount to account
-           self.panx_to_give_in_a_day.insert(account,&amount_to_give_each_day);
-           //Allow account to collect TGE
-           self.collected_tge.insert(account,&0);
-           //Insert the current date as last redeem date for account.
-           self.last_redeemed.insert(account, &self.get_current_timestamp());
-              
-        }
-
-
-        ///function to collect TGE (10%) for account
-        #[ink(message)]
-        pub fn collect_tge_tokens(&mut self)  {
-
-           //caller address
-           let account = self.env().caller();
-           //current account locked tokens
-           let account_balance = self.balances.get(&account).unwrap_or(0);
-           //making sure account didnt redeem tge yet
-           assert!(self.collected_tge.get(&account).unwrap_or(0) == 0);
-           //making sure account has more then 0 tokens
-           assert!(account_balance > 0);
-
-           //account balance without TGE token amounts
-           let account_balance_with_tge_amount =  (account_balance * 900) / 1000;
-
-           //calc the amount of TGE tokens to give 
-           let amount_to_give = account_balance - account_balance_with_tge_amount;
-
-           //transfers the TGE tokens to caller
-           let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]);
            
-           //deducts from overall vesting amount to give
-           self.balances.insert(account, &(account_balance - amount_to_give));
-
-           //make sure to change his collected tge status to 1 to prevent the user to call it again
-           self.collected_tge.insert(account,&1);
-
-
-
         }
+
+
+        ///Function to add account into the stacking program
+        #[ink(message)]
+        pub fn add_to_stacking(&mut self,account:AccountId,panx_to_lock:Balance)  {
+
+           //fetching user current PSP22 balance
+           let user_current_panx_balance = PSP22Ref::balance_of(&self.panx_psp22, self.env().caller());
+
+           //get current account balance (If any)
+           let account_locked_balance = self.balances.get(&account).unwrap_or(0);
+
+           if user_current_panx_balance >= 1000*10u128.pow(12) {
+
+               //validates if the the allowance is equal or greatee than the deposit PANX amount
+               let contract_allowance = PSP22Ref::allowance(&self.panx_psp22, self.env().caller(),Self::env().account_id());
+
+               assert!(contract_allowance >= panx_to_lock);
+
+               //transfers PANX from account to stacking contract
+               PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+               
+               let new_balance = account_locked_balance + panx_to_lock;
+
+               //add PANX allocation to account
+               self.balances.insert(account, &new_balance);
+
+               //calc how many tokens to give in a day
+               let amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
+
+               //insert the daily amount to account
+               self.panx_to_give_in_a_day.insert(account,&amount_to_give_each_day);
+
+               //get the last redeem date by timestamp, if account didnt redeem yet, retunr 0.
+               let account_last_redeem = self.last_redeemed.get(&account).unwrap_or(0);
+
+               if account_last_redeem > 0 {
+
+               //Insert the current date as last redeem date for account.
+               self.last_redeemed.insert(account, &self.get_current_timestamp());
+                   
+               }
+
+
+
+           }
+
+           if account_locked_balance > 0{
+
+                //validates if the the allowance is equal or greatee than the deposit PANX amount
+                let contract_allowance = PSP22Ref::allowance(&self.panx_psp22, self.env().caller(),Self::env().account_id());
+
+                assert!(contract_allowance >= panx_to_lock);
+
+                //transfers PANX from account to stacking contract
+                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+                
+                let new_balance = account_locked_balance + panx_to_lock;
+
+                //add PANX allocation to account
+                self.balances.insert(account, &new_balance);
+
+                //calc how many tokens to give in a day
+                let amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
+
+                //insert the daily amount to account
+                self.panx_to_give_in_a_day.insert(account,&amount_to_give_each_day);
+
+                //get the last redeem date by timestamp, if account didnt redeem yet, retunr 0.
+                let account_last_redeem = self.last_redeemed.get(&account).unwrap_or(0);
+
+                if account_last_redeem > 0 {
+
+                //Insert the current date as last redeem date for account.
+                self.last_redeemed.insert(account, &self.get_current_timestamp());
+                    
+                }
+
+           }
+             
+        }
+
 
         ///function to get account redeemable amount of tokens
         #[ink(message)]
@@ -126,7 +150,7 @@ pub mod vesting_contract {
             //current timestamp
             let current_tsp = self.get_current_timestamp();
             //account total locked PANX amount
-            let account_total_vesting_amount = self.get_account_total_vesting_amount(account);
+            let account_total_locked_amount = self.get_account_total_locked_amount(account);
 
         
             //last time account (caller) redeemed tokens
@@ -138,15 +162,15 @@ pub mod vesting_contract {
             //making sure that 24 hours has passed since last redeem
             assert!(days_diff > 0);
             //making sure that account has more then 0 PANX to redeem
-            assert!(account_total_vesting_amount >= 0);
+            assert!(account_total_locked_amount >= 0);
             //amount to give to caller
             let mut amount_redeemable_amount = panx_to_give_each_day * days_diff as u128;
 
 
             //if account has less tokens from the daily amount, give him the rest of tokens
-            if amount_redeemable_amount > account_total_vesting_amount{
+            if amount_redeemable_amount > account_total_locked_amount{
 
-                amount_redeemable_amount = account_total_vesting_amount
+                amount_redeemable_amount = account_total_locked_amount
             }
 
             amount_redeemable_amount
@@ -165,8 +189,7 @@ pub mod vesting_contract {
             //current timestamp
             let current_tsp = self.get_current_timestamp();
             //caller total locked PANX 
-            let account_total_vesting_amount = self.get_account_total_vesting_amount(account);
-
+            let account_total_locked_amount = self.get_account_total_locked_amount(account);
 
             let mut amount_redeemable_amount = self.get_redeemable_amount();
 
@@ -174,7 +197,32 @@ pub mod vesting_contract {
             self.last_redeemed.insert(account,&current_tsp);
 
             //make sure to deducte from overall amount
-            self.balances.insert(account, &(account_total_vesting_amount -  amount_redeemable_amount));
+            self.balances.insert(account, &(account_total_locked_amount -  amount_redeemable_amount));
+
+            //cross contract call to PANX contract to transfer PANX to caller
+            let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]);
+
+        }
+
+        ///function for account to auto stack redeemable locked tokens.
+        #[ink(message)]
+        pub fn auto_stack(&mut self) {
+
+            
+            //caller address
+            let account = self.env().caller();
+            //current timestamp
+            let current_tsp = self.get_current_timestamp();
+            //caller total locked PANX 
+            let account_total_locked_amount = self.get_account_total_locked_amount(account);
+
+            let mut amount_redeemable_amount = self.get_redeemable_amount();
+
+            //Making sure to set his last redeem to current timestamp
+            self.last_redeemed.insert(account,&current_tsp);
+
+            //make sure to deducte from overall amount
+            self.balances.insert(account, &(account_total_locked_amount -  amount_redeemable_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
             let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]);
@@ -184,7 +232,7 @@ pub mod vesting_contract {
 
         ///function to get account total locked tokens
         #[ink(message)]
-        pub fn get_account_total_vesting_amount(&mut self,account:AccountId)->Balance  {
+        pub fn get_account_total_locked_amount(&mut self,account:AccountId)->Balance  {
         
            let account_balance = self.balances.get(&account).unwrap_or(0);
            account_balance
@@ -206,25 +254,17 @@ pub mod vesting_contract {
            account_balance
 
         }
-        ///funtion to get vesting contract PANX reserve
+        ///funtion to get stacking contract PANX reserve
         #[ink(message)]
-        pub fn get_vesting_contract_panx_reserve(&self)->Balance  {
+        pub fn get_stacking_contract_panx_reserve(&self)->Balance  {
         
             let balance1 = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
             balance1
 
 
         }
-        ///function to get account TGE collection status
-        #[ink(message)]
-        pub fn user_tge_collection_status(&mut self,account:AccountId)->i64  {
 
-            let tge_status = self.collected_tge.get(account).unwrap_or(0);
-            tge_status
-
-
-        }
-        ///funtion to get the started date since issuing the vesting contract in timpstamp and str
+        ///funtion to get the started date since issuing the stacking contract in timpstamp and str
         #[ink(message)]
         pub fn get_started_date(&self) -> u64 {
             let timestamp = self.started_date_in_timestamp;
@@ -241,19 +281,6 @@ pub mod vesting_contract {
         }
 
         
-
-        //funtion to change account tge status
-        #[ink(message)]
-        pub fn change_tge_status_to_0(&mut self,of: AccountId)  {
-
-           //Making sure caller is the manager (Only manager can add)
-           assert!(self.env().caller() == self.manager);
-
-            self.collected_tge.insert(of, &(0));
-
-            
-        }
-
         ///funtion to change balance amount for account
         #[ink(message)]
         pub fn change_balance_amount(&mut self,of: AccountId,value:Balance)  {

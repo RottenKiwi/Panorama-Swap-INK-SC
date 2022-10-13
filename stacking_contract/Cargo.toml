@@ -1,12 +1,11 @@
 [package]
-name = "trading_pair_azero"
+name = "stacking_contract"
 version = "0.8.0"
 authors = ["Yonatan Hornstein <yonatan@panoramaswap.com>"]
 edition = "2021"
 overflow-checks = false
 
 [dependencies]
-
 # Import of all ink! crates
 ink_primitives = { version = "~3.3.0", default-features = false }
 ink_metadata = { version = "~3.3.0", default-features = false, features = ["derive"], optional = true }
@@ -21,17 +20,17 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 openbrush = { version = "~2.2.0", default-features = false, features = ["psp22"] }
 
 
+
 [lib]
-name = "trading_pair_azero"
+overflow-checks = false
+name = "stacking_contract"
 path = "lib.rs"
 crate-type = [
-    "cdylib",
-    # Used for ABI. Required for contracts to be included in other contracts.
-    "rlib",
+	# Used for normal contract Wasm blobs.
+	"cdylib"
 ]
 [profile.release]
 overflow-checks = false
-
 
 
 [features]
@@ -48,6 +47,6 @@ std = [
   "scale-info/std",
 
   # Brush dependency
-  "openbrush/std"
+  "openbrush/std",
+
 ]
-ink-as-dependency = []

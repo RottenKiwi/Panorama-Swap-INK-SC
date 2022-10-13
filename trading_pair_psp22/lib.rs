@@ -339,14 +339,14 @@ pub mod trading_pair_psp22 {
             //validating if user has more than 1000 PANX
             if user_current_balance >= 1000 * 10u128.pow(12){
 
-               if self.fee <= 1400000000000 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
-               }
-
-               if self.fee > 1400000000000 {
-                    amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
-               }
-            }
+                if self.fee  <= 1400000000000 {
+                     amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) / 2));
+                }
+ 
+                if self.fee  > 1400000000000 {
+                     amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) - 1));
+                }
+             }
 
 
             let numerator = amount_in_with_fees * self.get_psp22_token1_reserve();
