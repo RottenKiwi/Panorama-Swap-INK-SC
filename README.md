@@ -20,11 +20,11 @@ We are following and implementing OpenBrush's PSP22 protocol and standard.
 
 4. trading_pair_psp22 - this contract is used in deploying PSP22/PSP22 trading pairs and pools.
 
-4. vesting_contract - this contract contains all the logic for the vesting program.
+4. vesting_contract - this smart contract contains all the logic for the vesting program.
 
-5. airdrop_contract - this contract contains all the logic for the airdrop event.
+5. airdrop_contract - this smart contract contains all the logic for the airdrop event.
 
-6. airdrop_contract - this contract contains all the logic for the staking program.
+6. airdrop_contract - this smart contract contains all the logic for the staking program.
 
 
 
