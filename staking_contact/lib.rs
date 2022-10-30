@@ -278,7 +278,7 @@ pub mod staking_contract {
            let new_amount_to_give_each_day = new_locked_balance + (new_locked_balance * (70000000000 / 10u128.pow(12))) ;
 
            //insert the daily amount to account
-           self.panx_to_give_in_a_day.insert(account,&new_amount_to_give_each_day);
+           self.panx_to_give_in_a_day.insert(account_address,&new_amount_to_give_each_day);
 
            //cross contract call to PANX contract to approve PANX to give to caller
            //let _response_1 = PSP22Ref::approve(&self.psp22_token, caller,psp22_amount_to_give);

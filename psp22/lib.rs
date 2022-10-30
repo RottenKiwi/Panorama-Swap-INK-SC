@@ -36,5 +36,7 @@ pub mod my_psp22 {
                     .expect("Should mint total_supply");
             })
         }
+
+
     }
 }

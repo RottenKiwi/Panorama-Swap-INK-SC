@@ -260,13 +260,9 @@ pub mod trading_pair_azero {
 
             let amount_in_with_fees = (1 *10u128.pow(12)) * (100 - (self.fee / 10u128.pow(12)));
 
+            let amount_out = (amount_in_with_fees * self.get_a0_balance()) / ((self.get_psp22_balance() * 100) + amount_in_with_fees);
 
-            let numerator = amount_in_with_fees * self.get_a0_balance();
-            let deno = (self.get_psp22_balance() * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
-            
-            return amount_out    
-
+            amount_out
         }
 
         ///function to get the amount of A0 the caller will get for given PSP22 amount
@@ -293,11 +289,7 @@ pub mod trading_pair_azero {
              }
 
 
-
-
-            let numerator = amount_in_with_fees * self.get_a0_balance();
-            let deno = (self.get_psp22_balance() * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
+            let amount_out = (amount_in_with_fees * self.get_a0_balance()) / ((self.get_psp22_balance() * 100) + amount_in_with_fees);
             
             return amount_out                        
 
@@ -328,10 +320,7 @@ pub mod trading_pair_azero {
                }
             }
 
-
-            let numertraor = amount_in_with_fees * self.get_psp22_balance();
-            let deno = (a0_reserve_before * 100) + amount_in_with_fees;
-            let amount_out = numertraor / deno;
+            let amount_out = (amount_in_with_fees * self.get_psp22_balance()) / ((a0_reserve_before * 100) + amount_in_with_fees);
 
             return amount_out  
 
@@ -344,9 +333,7 @@ pub mod trading_pair_azero {
             //calc the amount_in with the current fees to transfer to the LP providers.
             let amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 10u128.pow(12)));
 
-            let numertraor = amount_in_with_fees * self.get_psp22_balance();
-            let deno = (self.get_a0_balance() * 100) + amount_in_with_fees;
-            let amount_out = numertraor / deno;
+            let amount_out = (amount_in_with_fees * self.get_psp22_balance()) / ((self.get_a0_balance() * 100) + amount_in_with_fees);
             
             return amount_out  
 
@@ -354,36 +341,31 @@ pub mod trading_pair_azero {
 
         ///function to get the estimated price impact for given psp22 token amount
         #[ink(message)]
-        pub fn get_price_impact_psp22_to_a0(&self,amount_in: Balance) -> Balance {
+        pub fn get_price_impact_psp22_to_a0(&self,psp22_amount_in: Balance) -> Balance {
 
-            let amount_out = self.get_est_price_psp22_to_a0(amount_in);
-
-
+            let current_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_in);
+    
+    
             //Reduct LP fee from the amount in
-            let amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
-
-            let numerator = amount_in_with_fees * (self.get_a0_balance() - amount_out);
-            let deno = ((self.get_psp22_balance() + amount_in) * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
-            amount_out
-
-
-
+            let amount_in_with_fees = psp22_amount_in * (100 - (self.fee / 10u128.pow(12)));
+    
+            let future_amount_out = (amount_in_with_fees * (self.get_a0_balance() - current_amount_out)) / (((self.get_psp22_balance() + psp22_amount_in) * 100) + amount_in_with_fees);
+            
+            future_amount_out
+    
         }
         ///function to get the estimated price impact for given A0 amount
         #[ink(message)]
-        pub fn get_price_impact_a0_to_psp22(&mut self,a0_to_trasfer:Balance) -> Balance {
+        pub fn get_price_impact_a0_to_psp22(&mut self,a0_amount_in:Balance) -> Balance {
             
-            let amount_out = self.get_est_price_a0_to_psp22(a0_to_trasfer);
+            let current_amount_out = self.get_est_price_a0_to_psp22(a0_amount_in);
 
             //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees = a0_to_trasfer * (100 - (self.fee / 10u128.pow(12)));
+            let amount_in_with_fees = a0_amount_in * (100 - (self.fee / 10u128.pow(12)));
 
-            let numertraor = amount_in_with_fees * (self.get_psp22_balance() - amount_out);
-            let deno = ((self.get_a0_balance() + a0_to_trasfer)* 100) + amount_in_with_fees;
-            let amount_out = numertraor / deno;
+            let future_amount_out = (amount_in_with_fees * (self.get_psp22_balance() - current_amount_out)) / (((self.get_a0_balance() + a0_amount_in)* 100) + amount_in_with_fees);
 
-            amount_out
+            future_amount_out
 
 
         }
@@ -391,33 +373,33 @@ pub mod trading_pair_azero {
         
         ///function to swap PSP22 Tokens to A0
         #[ink(message)]
-        pub fn swap_psp22(&mut self,amount_to_transfer: u128, amount_to_validate: u128,slippage: u128) {
+        pub fn swap_psp22(&mut self,psp22_amount_to_transfer: u128, a0_amount_to_validate: u128,slippage: u128) {
 
             //fetching user current PSP22 balance
             let user_current_balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
             //making sure user has more or equal to the amount he transfers.
-            assert!(user_current_balance >= amount_to_transfer);
+            assert!(user_current_balance >= psp22_amount_to_transfer);
 
             let contract_allowance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
             //making sure trading pair contract has enough allowance.
-            assert!(contract_allowance >= amount_to_transfer);
+            assert!(contract_allowance >= psp22_amount_to_transfer);
             
             //the amount of A0 to give to the caller.
-            let amount_out = self.get_est_price_psp22_to_a0(amount_to_transfer);
+            let a0_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_to_transfer);
 
 
             //cross contract call to PSP22 contract to transfer PSP22 to the Trading Pair contract (self)
-            let _response = PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), amount_to_transfer, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire();
+            let _response = PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_amount_to_transfer, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire();
 
 
             //precentage dif between given A0 amount (from front-end) and acutal final AO amount
-            let precentage_diff = self.check_diffrenece(amount_to_validate,amount_out);
+            let precentage_diff = self.check_diffrenece(a0_amount_to_validate,a0_amount_out);
 
             //Validating slippage
             assert!(precentage_diff < slippage.try_into().unwrap());
 
             //function to transfer A0 to the caller.
-            if self.env().transfer(self.env().caller(), amount_out).is_err() {
+            if self.env().transfer(self.env().caller(), a0_amount_out).is_err() {
                 panic!(
                     "requested transfer failed. this can be the case if the contract does not\
                      have sufficient free funds or if the transfer would have brought the\
@@ -433,18 +415,18 @@ pub mod trading_pair_azero {
 
         ///function to swap a0 and psp22
         #[ink(message,payable)]
-        pub fn swap_a0(&mut self,amount_to_validate: u128,slippage: u128) {
+        pub fn swap_a0(&mut self,psp22_amount_to_validate: u128,slippage: u128) {
             
             //amount of PSP22 tokens to give to caller.
-            let amount_out = self.get_est_price_a0_to_psp22_for_swap(self.env().transferred_value());
+            let psp22_amount_out = self.get_est_price_a0_to_psp22_for_swap(self.env().transferred_value());
 
             //precentage dif between given PSP22 amount (from front-end) and acutal final PSP22 amount
-            let precentage_diff = self.check_diffrenece(amount_to_validate,amount_out);
+            let precentage_diff = self.check_diffrenece(psp22_amount_to_validate,psp22_amount_out);
 
             //Validating slippage
             assert!(precentage_diff < slippage.try_into().unwrap());
             //cross contract call to PSP22 contract to transfer PSP22 to the swapper
-            let _response = PSP22Ref::transfer(&self.psp22_token, self.env().caller(), amount_out, ink_prelude::vec![]);
+            let _response = PSP22Ref::transfer(&self.psp22_token, self.env().caller(), psp22_amount_out, ink_prelude::vec![]);
 
 
             //increase num of trans
@@ -476,28 +458,28 @@ pub mod trading_pair_azero {
         ///function to get contract A0 balance
         #[ink(message)]
         pub fn get_a0_balance(&self) -> Balance {
-            
-            let amount = self.env().balance();
-            amount
+            let a0_balance = self.env().balance();
+            a0_balance
         }
+
         ///function to get shares of specific account
         #[ink(message)]
-        pub fn get_lp_token_of(&self,of: AccountId) -> Balance {
-            let of_balance = self.balances.get(&of).unwrap_or(0);
-
-            of_balance
+        pub fn get_lp_token_of(&self,account: AccountId) -> Balance {
+            let account_balance = self.balances.get(&account).unwrap_or(0);
+            account_balance
         }
+
         //function to get contract PSP22 reserve (self)
         #[ink(message)]
         pub fn get_psp22_balance(&self) -> Balance {
-            let balance = PSP22Ref::balance_of(&self.psp22_token, Self::env().account_id());
-            balance
+            let psp22_balance = PSP22Ref::balance_of(&self.psp22_token, Self::env().account_id());
+            psp22_balance
         }
         ///function to get current fee 
         #[ink(message)]
         pub fn get_fee(&self) -> Balance {
-            let amount = self.fee;
-            amount
+            let fee = self.fee;
+            fee
         }
 
 
@@ -510,24 +492,16 @@ pub mod trading_pair_azero {
         #[ink(message,payable)]
         pub fn check_diffrenece(&mut self,value1: u128,value2: u128) -> u128 {
 
-            let abs_dif = value1.abs_diff(value2);
+            let absolute_difference = value1.abs_diff(value2);
 
-            let abs_dif_nominated = abs_dif * 10u128.pow(12);
+            let absolute_difference_nominated = absolute_difference * 10u128.pow(12);
 
-            let diff = 100 * (abs_dif_nominated / ((value1+value2) / 2));
+            let percentage_difference = 100 * (absolute_difference_nominated / ((value1+value2) / 2));
 
-            diff
+            percentage_difference
             
         }
 
-        #[ink(message, payable, selector = 0xCAFEBABE)]
-        pub fn was_it_ten(&self) {
-            ink_env::debug_println!(
-                "received payment: {}",
-                self.env().transferred_value()
-            );
-            assert!(self.env().transferred_value() == 10, "payment was not ten");
-        }
  
     }
 }
