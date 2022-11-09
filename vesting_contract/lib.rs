@@ -67,7 +67,11 @@ pub mod vesting_contract {
         pub fn add_to_vesting(&mut self,account:AccountId,panx_to_give_overall:Balance)  {
 
            //Making sure caller is the manager (Only manager can add)
-           assert!(self.env().caller() == self.manager);
+           if self.env().caller() != self.manager {
+           panic!(
+                "The caller is not manager, cannot add account to vesting program."
+           )
+           }
            //get current account balance (If any)
            let account_balance = self.balances.get(&account).unwrap_or(0);
            //add PANX allocation to account
@@ -93,9 +97,18 @@ pub mod vesting_contract {
            //current account locked tokens
            let account_balance = self.balances.get(&account).unwrap_or(0);
            //making sure account didnt redeem tge yet
-           assert!(self.collected_tge.get(&account).unwrap_or(0) == 0);
+           
+           if self.collected_tge.get(&account).unwrap_or(0) != 0 {
+            panic!(
+                 "The caller is not manager, cannot add to account to vesting program."
+            )
+            }
            //making sure account has more then 0 tokens
-           assert!(account_balance > 0);
+           if account_balance <= 0 {
+            panic!(
+                 "Caller has balance of 0 locked tokens."
+            )
+            }
 
            //account balance without TGE token amounts
            let account_balance_with_tge_amount =  (account_balance * 900) / 1000;
@@ -136,9 +149,17 @@ pub mod vesting_contract {
             //days since last redeem
             let days_diff = (current_tsp - last_redeemed) / 86400;
             //making sure that 24 hours has passed since last redeem
-            assert!(days_diff > 0);
+            if days_diff <= 0 {
+                panic!(
+                     "No amount to reedem, 24 hours didnt past since the last redeem."
+                )
+                }
             //making sure that account has more then 0 PANX to redeem
-            assert!(account_total_vesting_amount >= 0);
+            if account_total_vesting_amount <= 0 {
+                panic!(
+                     "Caller has balance of 0 locked tokens."
+                )
+                }
             //amount to give to caller
             let mut amount_redeemable_amount = panx_to_give_each_day * days_diff as u128;
 
@@ -242,42 +263,6 @@ pub mod vesting_contract {
 
         
 
-        //funtion to change account tge status
-        #[ink(message)]
-        pub fn change_tge_status_to_0(&mut self,of: AccountId)  {
-
-           //Making sure caller is the manager (Only manager can add)
-           assert!(self.env().caller() == self.manager);
-
-            self.collected_tge.insert(of, &(0));
-
-            
-        }
-
-        ///funtion to change balance amount for account
-        #[ink(message)]
-        pub fn change_balance_amount(&mut self,of: AccountId,value:Balance)  {
-
-
-            //Making sure caller is the manager (Only manager can add)
-            assert!(self.env().caller() == self.manager);
-
-            self.balances.insert(of, &(value));
-
-            
-        }
-
-        ///function to change balance amount for account
-        #[ink(message)]
-        pub fn change_daily_claim(&mut self,of: AccountId,value:Balance)  {
-
-            //Making sure caller is the manager (Only manager can add)
-            assert!(self.env().caller() == self.manager);
-
-            self.panx_to_give_in_a_day.insert(of,&value);
-
-            
-        }
         //get the days pass since deployment
         #[ink(message)]
         pub fn get_days_passed_since_issue(&self) -> u64 {
