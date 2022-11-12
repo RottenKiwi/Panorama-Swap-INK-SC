@@ -151,13 +151,13 @@ pub mod vesting_contract {
             //making sure that 24 hours has passed since last redeem
             if days_diff <= 0 {
                 panic!(
-                     "No amount to reedem, 24 hours didnt past since the last redeem."
+                     "0 Days passed since the last redeem, kindly wait 24 hours after redeem."
                 )
                 }
             //making sure that account has more then 0 PANX to redeem
             if account_total_vesting_amount <= 0 {
                 panic!(
-                     "Caller has balance of 0 locked tokens."
+                     "Caller has balance of 0 locked tokens. "
                 )
                 }
             //amount to give to caller

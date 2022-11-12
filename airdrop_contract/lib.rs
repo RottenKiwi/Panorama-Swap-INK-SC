@@ -55,7 +55,11 @@ pub mod airdrop_contract {
         pub fn collect_50_tokens(&mut self)  {
 
            //making sure account didnt redeem airdrop yet
-           assert!(self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) == 0);
+           if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
+            panic!(
+                "Caller already redeemed the airdrop, cannt redeem again."
+            )
+        }
 
            //transfers the airdrop tokens to caller
            let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), 50 *10u128.pow(12), ink_prelude::vec![]);
@@ -70,7 +74,11 @@ pub mod airdrop_contract {
         pub fn collect_500_tokens(&mut self)  {
 
            //making sure account didnt redeem airdrop yet
-           assert!(self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) == 0);
+           if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
+            panic!(
+                "Caller already redeemed the airdrop, cannt redeem again."
+            )
+        }
 
            //transfers the airdrop tokens to caller
            let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), 500 *10u128.pow(12), ink_prelude::vec![]);
