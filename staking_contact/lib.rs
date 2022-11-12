@@ -62,13 +62,15 @@ pub mod staking_contract {
 
         ///Function to add account into the staking program
         #[ink(message)]
-        pub fn add_to_staking(&mut self,account:AccountId,panx_to_lock:Balance) {
+        pub fn add_to_staking(&mut self,panx_to_lock:Balance) {
+
+           let caller = self.env().caller();
 
            //fetching user current PSP22 balance
-           let account_current_panx_balance = PSP22Ref::balance_of(&self.panx_psp22, self.env().caller());
+           let account_current_panx_balance = PSP22Ref::balance_of(&self.panx_psp22, caller);
 
            //get current account balance (If any)
-           let account_locked_balance = self.balances.get(&account).unwrap_or(0);
+           let account_locked_balance = self.balances.get(&caller).unwrap_or(0);
 
            if account_current_panx_balance >= 1000*10u128.pow(12) && account_locked_balance == 0  {
 
@@ -76,10 +78,19 @@ pub mod staking_contract {
                let contract_allowance = PSP22Ref::allowance(&self.panx_psp22, self.env().caller(),Self::env().account_id());
                
                //validates if the contract has sufficent allowance.
-               assert!(contract_allowance >= panx_to_lock);
+               if contract_allowance < panx_to_lock {
+                panic!(
+                    "Not enough allowance, please make sure you approved the current amount
+                    before adding to staking program."
+                )
+                }
                
                //validates if the account has enought PANX to lock
-               assert!(account_current_panx_balance >= panx_to_lock);
+               if account_current_panx_balance < panx_to_lock {
+                panic!(
+                    "Caller does not have enough PANX tokens to lock, kindly re-adjust deposit PANX amount."
+                )
+                }
 
                //transfers PANX from account to staking contract
                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
@@ -88,21 +99,21 @@ pub mod staking_contract {
                let new_balance = account_locked_balance + panx_to_lock;
 
                //add PANX allocation to account
-               self.balances.insert(account, &new_balance);
+               self.balances.insert(caller, &new_balance);
 
                //calc how many tokens to give in a day
                let amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
 
                //insert the daily amount to account
-               self.panx_to_give_in_a_day.insert(account,&amount_to_give_each_day);
+               self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
 
                //get the last redeem date by timestamp, if account didnt redeem yet, retunr 0.
-               let account_last_redeem = self.last_redeemed.get(&account).unwrap_or(0);
+               let account_last_redeem = self.last_redeemed.get(&caller).unwrap_or(0);
 
                if account_last_redeem > 0 {
 
                //Insert the current date as last redeem date for account.
-               self.last_redeemed.insert(account, &self.get_current_timestamp());
+               self.last_redeemed.insert(caller, &self.get_current_timestamp());
                    
                }
 
@@ -116,10 +127,20 @@ pub mod staking_contract {
                 let contract_allowance = PSP22Ref::allowance(&self.panx_psp22, self.env().caller(),Self::env().account_id());
 
                 //validates if the contract has sufficent allowance.
-                assert!(contract_allowance >= panx_to_lock);
+                if contract_allowance < panx_to_lock {
+                    panic!(
+                        "Not enough allowance, please make sure you approved the current amount of PANX
+                        tokens before adding to staking program."
+                    )
+                    }
+
 
                 //validates if the account has enought PANX to lock
-                assert!(account_current_panx_balance >= panx_to_lock);
+                if account_current_panx_balance < panx_to_lock {
+                    panic!(
+                        "Caller does not have enough PANX tokens to lock, kindly re-adjust deposit PANX amount."
+                    )
+                    }
 
                 //transfers PANX from account to staking contract
                 PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
@@ -128,30 +149,30 @@ pub mod staking_contract {
                 let new_balance = account_locked_balance + panx_to_lock;
 
                 //add PANX allocation to account
-                self.balances.insert(account, &new_balance);
+                self.balances.insert(caller, &new_balance);
 
                 //calc how many tokens to give in a day
                 let amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
 
                 //insert the daily amount to account
-                self.panx_to_give_in_a_day.insert(account,&amount_to_give_each_day);
+                self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
 
                 //get the last redeem date by timestamp, if account didnt redeem yet, retunr 0.
-                let account_last_redeem = self.last_redeemed.get(&account).unwrap_or(0);
+                let account_last_redeem = self.last_redeemed.get(&caller).unwrap_or(0);
 
                 if account_last_redeem > 0 {
 
                 //Insert the current date as last redeem date for account.
-                self.last_redeemed.insert(account, &self.get_current_timestamp());
+                self.last_redeemed.insert(caller, &self.get_current_timestamp());
                     
                 }
 
            }
 
-           if account_current_panx_balance <= 1000*10u128.pow(12) && account_locked_balance == 0 {
+           if account_current_panx_balance < 1000*10u128.pow(12) && account_locked_balance == 0 {
 
             panic!(
-                "insufficient PANX balance"
+                "Caller has less than 1,000 PANX, cannot add to staking program."
             )
 
            }
@@ -178,9 +199,17 @@ pub mod staking_contract {
             //days since last redeem
             let days_diff = (current_tsp - last_redeemed) / 86400;
             //making sure that 24 hours has passed since last redeem
-            assert!(days_diff > 0);
+            if days_diff <= 0 {
+                panic!(
+                     "0 Days passed since the last redeem, kindly wait 24 hours after redeem."
+                )
+                }
             //making sure that account has more then 0 PANX to redeem
-            assert!(account_total_locked_amount >= 0);
+            if account_total_locked_amount <= 0 {
+                panic!(
+                     "Caller has balance of 0 locked tokens. "
+                )
+                }
             //amount to give to account
             let mut panx_redeemable_amount = panx_to_give_each_day * days_diff as u128;
 
@@ -263,7 +292,11 @@ pub mod staking_contract {
            let panx_redeemable_amount = self.get_redeemable_amount();
 
            //Validating that the account has the given number of locked tokens.
-           assert!((account_locked_tokens + panx_redeemable_amount) >= amount_of_tokens);
+           if (account_locked_tokens + panx_redeemable_amount) < amount_of_tokens {
+            panic!(
+                 "Caller does not have the amount of requested PANX to withdraw. "
+            )
+            }
 
            //Amount of panx to give to the account
            let amount_of_panx_to_give = amount_of_tokens;
@@ -342,31 +375,7 @@ pub mod staking_contract {
             bts
         }
 
-        
-        ///funtion to change balance amount for account
-        #[ink(message)]
-        pub fn change_balance_amount(&mut self,of: AccountId,value:Balance)  {
 
-
-            //Making sure account is the manager (Only manager can add)
-            assert!(self.env().caller() == self.manager);
-
-            self.balances.insert(of, &(value));
-
-            
-        }
-
-        ///function to change balance amount for account
-        #[ink(message)]
-        pub fn change_daily_claim(&mut self,of: AccountId,value:Balance)  {
-
-            //Making sure account is the manager (Only manager can add)
-            assert!(self.env().caller() == self.manager);
-
-            self.panx_to_give_in_a_day.insert(of,&value);
-
-            
-        }
         //get the days pass since deployment
         #[ink(message)]
         pub fn get_days_passed_since_issue(&self) -> u64 {
