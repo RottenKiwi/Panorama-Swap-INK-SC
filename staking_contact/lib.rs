@@ -74,7 +74,7 @@ pub mod staking_contract {
 
            if account_current_panx_balance >= 1000*10u128.pow(12) && account_locked_balance == 0  {
 
-               //validates if the the allowance is equal or greatee than the deposit PANX amount
+               //validates if the the allowance is equal or greater than the deposit PANX amount
                let contract_allowance = PSP22Ref::allowance(&self.panx_psp22, self.env().caller(),Self::env().account_id());
                
                //validates if the contract has sufficent allowance.
@@ -93,8 +93,11 @@ pub mod staking_contract {
                 }
 
                //transfers PANX from account to staking contract
-               PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
-               
+               if PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+                panic!(
+                    "Error in PSP22 transferFrom cross contract call function."
+               )
+               }
                //variable to hold current amount of locked PANX
                let new_balance = account_locked_balance + panx_to_lock;
 
@@ -102,12 +105,12 @@ pub mod staking_contract {
                self.balances.insert(caller, &new_balance);
 
                //calc how many tokens to give in a day
-               let amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
+               let amount_to_give_each_day = (new_balance + (new_balance * (70000000000 / 10u128.pow(12)))) / 365  ;
 
                //insert the daily amount to account
                self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
 
-               //get the last redeem date by timestamp, if account didnt redeem yet, retunr 0.
+               //get the last redeem date by timestamp, if account didnt redeem yet, return 0.
                let account_last_redeem = self.last_redeemed.get(&caller).unwrap_or(0);
 
                if account_last_redeem > 0 {
@@ -143,7 +146,11 @@ pub mod staking_contract {
                     }
 
                 //transfers PANX from account to staking contract
-                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+                if PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+                    panic!(
+                        "Error in PSP22 transferFrom cross contract call function."
+                   )
+                   }
                 
                //variable to hold current amount of locked PANX
                 let new_balance = account_locked_balance + panx_to_lock;
@@ -152,20 +159,11 @@ pub mod staking_contract {
                 self.balances.insert(caller, &new_balance);
 
                 //calc how many tokens to give in a day
-                let amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
+                let amount_to_give_each_day = (new_balance + (new_balance * (70000000000 / 10u128.pow(12)))) / 365  ;
 
                 //insert the daily amount to account
                 self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
 
-                //get the last redeem date by timestamp, if account didnt redeem yet, retunr 0.
-                let account_last_redeem = self.last_redeemed.get(&caller).unwrap_or(0);
-
-                if account_last_redeem > 0 {
-
-                //Insert the current date as last redeem date for account.
-                self.last_redeemed.insert(caller, &self.get_current_timestamp());
-                    
-                }
 
            }
 
@@ -241,8 +239,11 @@ pub mod staking_contract {
 
 
             //cross contract call to PANX contract to transfer PANX to account
-            let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), panx_redeemable_amount, ink_prelude::vec![]);
-
+            if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), panx_redeemable_amount, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22 transfer cross contract call function, make sure that the staking contract has enough PANX "
+                )
+            }
             //Making sure to set his last redeem to current timestamp
             self.last_redeemed.insert(account,&current_tsp);
 
@@ -266,7 +267,7 @@ pub mod staking_contract {
             let new_balance = account_total_locked_amount + amount_redeemable_amount;
 
             //calc how many tokens to give in a day
-            let new_amount_to_give_each_day = new_balance + (new_balance * (70000000000 / 10u128.pow(12)))  ;
+            let new_amount_to_give_each_day = (new_balance + (new_balance * (70000000000 / 10u128.pow(12)))) / 365;
 
             //insert the daily amount to account
             self.panx_to_give_in_a_day.insert(account,&new_amount_to_give_each_day);
@@ -308,16 +309,17 @@ pub mod staking_contract {
            self.balances.insert(account_address, &new_locked_balance);
 
            //calc how many tokens to give in a day
-           let new_amount_to_give_each_day = new_locked_balance + (new_locked_balance * (70000000000 / 10u128.pow(12))) ;
+           let new_amount_to_give_each_day = (new_locked_balance + (new_locked_balance * (70000000000 / 10u128.pow(12)))) / 365 ;
 
            //insert the daily amount to account
            self.panx_to_give_in_a_day.insert(account_address,&new_amount_to_give_each_day);
 
-           //cross contract call to PANX contract to approve PANX to give to caller
-           //let _response_1 = PSP22Ref::approve(&self.psp22_token, caller,psp22_amount_to_give);
            //cross contract call to PANX contract to transfer PANX to the account
-           let _response_2 = PSP22Ref::transfer(&self.panx_psp22, account_address, amount_of_panx_to_give, ink_prelude::vec![]);
-
+           if PSP22Ref::transfer(&self.panx_psp22, account_address, amount_of_panx_to_give, ink_prelude::vec![]).is_err() {
+            panic!(
+                "Error in PSP22 transfer cross contract call function, make sure that the staking contract has enough PANX "
+            )
+        }
            let current_tsp = self.get_current_timestamp();
 
            //Making sure to set his last redeem to current timestamp
@@ -353,8 +355,8 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn get_staking_contract_panx_reserve(&self)->Balance  {
         
-            let balance1 = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
-            balance1
+            let staking_contract_reserve = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
+            staking_contract_reserve
 
 
         }
@@ -363,7 +365,6 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn get_started_date(&self) -> u64 {
             let timestamp = self.started_date_in_timestamp;
-            
             timestamp
         }
 
@@ -371,8 +372,8 @@ pub mod staking_contract {
         ///function to get current timpstamp in seconds
         #[ink(message)]
         pub fn get_current_timestamp(&self) -> u64 {
-            let bts = self.env().block_timestamp() / 1000;
-            bts
+            let time_stamp_in_seconds = self.env().block_timestamp() / 1000;
+            time_stamp_in_seconds
         }
 
 

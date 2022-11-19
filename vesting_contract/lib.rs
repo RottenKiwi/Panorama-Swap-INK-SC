@@ -69,7 +69,7 @@ pub mod vesting_contract {
            //Making sure caller is the manager (Only manager can add)
            if self.env().caller() != self.manager {
            panic!(
-                "The caller is not manager, cannot add account to vesting program."
+                "The caller is not the manager, cannot add account to vesting program."
            )
            }
            //get current account balance (If any)
@@ -97,10 +97,9 @@ pub mod vesting_contract {
            //current account locked tokens
            let account_balance = self.balances.get(&account).unwrap_or(0);
            //making sure account didnt redeem tge yet
-           
            if self.collected_tge.get(&account).unwrap_or(0) != 0 {
             panic!(
-                 "The caller is not manager, cannot add to account to vesting program."
+                 "The caller already redeemed his TGE alloction, cannot redeem again."
             )
             }
            //making sure account has more then 0 tokens
@@ -117,8 +116,11 @@ pub mod vesting_contract {
            let amount_to_give = account_balance - account_balance_with_tge_amount;
 
            //transfers the TGE tokens to caller
-           let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]);
-           
+           if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]).is_err() {
+            panic!(
+                "Error in PSP22 transfer cross contract call function, make sure that the vesting contract has enough PANX "
+            )
+            }
            //deducts from overall vesting amount to give
            self.balances.insert(account, &(account_balance - amount_to_give));
 
@@ -198,7 +200,11 @@ pub mod vesting_contract {
             self.balances.insert(account, &(account_total_vesting_amount -  amount_redeemable_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
-            let _response = PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]);
+            if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22 transfer cross contract call function, make sure that the vesting contract has enough PANX."
+                )
+                }
 
         }
 
@@ -231,8 +237,8 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_vesting_contract_panx_reserve(&self)->Balance  {
         
-            let balance1 = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
-            balance1
+            let vesting_panx_reserve = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
+            vesting_panx_reserve
 
 
         }
@@ -249,7 +255,6 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_started_date(&self) -> u64 {
             let timestamp = self.started_date_in_timestamp;
-            
             timestamp
         }
 

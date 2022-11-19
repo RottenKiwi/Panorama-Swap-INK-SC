@@ -130,9 +130,12 @@ pub mod trading_pair_azero {
 
 
            //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
-           PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+           if PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+            panic!(
+                "Error in PSP22 transferFrom cross contract call function, kindly re-adjust your deposited PSP22 tokens."
+           )
+           }
                        
-          
 
            //caller current shares (if any)
            let current_shares = self.get_lp_token_of(self.env().caller());
@@ -166,18 +169,13 @@ pub mod trading_pair_azero {
            let psp22_amount_to_give = self.get_psp22_withdraw_tokens_amount(shares);
            //Amount of psp22 to give to the caller
            let a0_amount_to_give = self.get_a0_withdraw_tokens_amount(shares);
-
-           //reducing caller LP token balance
-           self.balances.insert(caller, &(caller_shares - shares));
-           //reducing over LP token supply (burn)
-           self.total_supply -= shares;
-
            
-           //cross contract call to PANX contract to approve PANX to give to caller
-           let _response_1 = PSP22Ref::approve(&self.psp22_token, caller,psp22_amount_to_give);
            //cross contract call to PANX contract to transfer PANX to the caller
-           let _response_2 = PSP22Ref::transfer(&self.psp22_token, caller, psp22_amount_to_give, ink_prelude::vec![]);
-           
+           if PSP22Ref::transfer(&self.psp22_token, caller, psp22_amount_to_give, ink_prelude::vec![]).is_err() {
+            panic!(
+                "Error in PSP22 transfer cross contract call function, kindly re-adjust withdraw shares amount."
+            )
+            }
            //fun to transfer A0 to the caller
            if self.env().transfer(self.env().caller(), a0_amount_to_give).is_err() {
                panic!(
@@ -186,6 +184,11 @@ pub mod trading_pair_azero {
                     contract's balance below minimum balance."
                )
            }
+
+           //reducing caller LP token balance
+           self.balances.insert(caller, &(caller_shares - shares));
+           //reducing over LP token supply (burn)
+           self.total_supply -= shares;
 
 
        }
@@ -281,11 +284,8 @@ pub mod trading_pair_azero {
         ///function to get the amount of A0 given for 1 PSP22 token
 	    #[ink(message)]
         pub fn get_price_for_one_psp22(&self)-> Balance {
-            
 
-            let amount_in_with_fees = (1 *10u128.pow(12)) * (100 - (self.fee / 10u128.pow(12)));
-
-            let amount_out = (amount_in_with_fees * self.get_a0_balance()) / ((self.get_psp22_balance() * 100) + amount_in_with_fees);
+            let amount_out = self.get_est_price_psp22_to_a0(1*10u128.pow(12));
 
             amount_out
         }
@@ -301,8 +301,8 @@ pub mod trading_pair_azero {
             let mut amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
 
-            //validating if user has more than 1000 PANX
-            if user_current_balance >= 1000 * 10u128.pow(12){
+            //validating if user has more than 3500 PANX
+            if user_current_balance >= 3500 * 10u128.pow(12){
 
                 if self.fee  <= 1400000000000 {
                      amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) / 2));
@@ -322,26 +322,26 @@ pub mod trading_pair_azero {
 
         ///function to get the amount of PSP22 the caller will get for given A0 amount (swap use)
         #[ink(message,payable)]
-        pub fn get_est_price_a0_to_psp22_for_swap(&self,ao_amount_to_tranfer:Balance) -> Balance { 
+        pub fn get_est_price_a0_to_psp22_for_swap(&self,ao_amount_to_transfer:Balance) -> Balance { 
 
             //We need to calc the A0 reserve before swapping.
-            let a0_reserve_before = self.get_a0_balance() - ao_amount_to_tranfer;
+            let a0_reserve_before = self.get_a0_balance() - ao_amount_to_transfer;
 
             //fetching user current PSP22 balance
             let user_current_balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
             //Init variable
-            let mut amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 10u128.pow(12)));
+            let mut amount_in_with_fees = ao_amount_to_transfer * (100 - (self.fee / 10u128.pow(12)));
 
-            //validating if user has more than 1000 PANX
-            if user_current_balance >= 1000 * 10u128.pow(12){
+            //validating if user has more than 3500 PANX
+            if user_current_balance >= 3500 * 10u128.pow(12){
 
                 if self.fee  <= 1400000000000 {
-                     amount_in_with_fees = ao_amount_to_tranfer * (100 - ((self.fee / 10u128.pow(12)) / 2));
+                     amount_in_with_fees = ao_amount_to_transfer * (100 - ((self.fee / 10u128.pow(12)) / 2));
                 }
  
                 if self.fee  > 1400000000000 {
-                     amount_in_with_fees = ao_amount_to_tranfer * (100 - ((self.fee / 10u128.pow(12)) - 1));
+                     amount_in_with_fees = ao_amount_to_transfer * (100 - ((self.fee / 10u128.pow(12)) - 1));
                 }
              }
 
@@ -354,10 +354,10 @@ pub mod trading_pair_azero {
 
         ///function to get the amount of PSP22 the caller will get for given A0 amount (front-end use)
         #[ink(message,payable)]
-        pub fn get_est_price_a0_to_psp22(&self,ao_amount_to_tranfer:Balance) -> Balance { 
+        pub fn get_est_price_a0_to_psp22(&self,ao_amount_to_transfer:Balance) -> Balance { 
 
             //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees = ao_amount_to_tranfer * (100 - (self.fee / 10u128.pow(12)));
+            let amount_in_with_fees = ao_amount_to_transfer * (100 - (self.fee / 10u128.pow(12)));
 
             let amount_out = (amount_in_with_fees * self.get_psp22_balance()) / ((self.get_a0_balance() * 100) + amount_in_with_fees);
             
@@ -424,10 +424,12 @@ pub mod trading_pair_azero {
             //the amount of A0 to give to the caller.
             let a0_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_to_transfer);
 
-
-            //cross contract call to PSP22 contract to transfer PSP22 to the Trading Pair contract (self)
-            let _response = PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_amount_to_transfer, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire();
-
+           //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
+           if PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_amount_to_transfer, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+            panic!(
+                "Error in PSP22 transferFrom cross contract call function, kindly re-adjust your deposited PSP22 tokens."
+           )
+           }
 
             //precentage dif between given A0 amount (from front-end) and acutal final AO amount
             let precentage_diff = self.check_diffrenece(a0_amount_to_validate,a0_amount_out);
@@ -473,7 +475,11 @@ pub mod trading_pair_azero {
                 )
             }
             //cross contract call to PSP22 contract to transfer PSP22 to the swapper
-            let _response = PSP22Ref::transfer(&self.psp22_token, self.env().caller(), psp22_amount_out, ink_prelude::vec![]);
+            if PSP22Ref::transfer(&self.psp22_token, self.env().caller(), psp22_amount_out, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22 transfer cross contract call function, kindly re-adjust AZERO deposit amount."
+                )
+                }
 
 
             //increase num of trans

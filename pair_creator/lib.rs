@@ -69,7 +69,7 @@ pub mod pair_creator {
                 .instantiate()
                 .unwrap_or_else(|error| {
                     panic!(
-                        "failed at instantiating the Azero trading pair contract: {:?}",
+                        "failed at instantiating the PSP22 trading pair contract: {:?}",
                         error
                     )
             });

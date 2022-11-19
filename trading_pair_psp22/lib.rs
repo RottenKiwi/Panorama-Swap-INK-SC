@@ -96,34 +96,73 @@ pub mod trading_pair_psp22 {
            }
 
            //validating that shares is greater than 0
-           assert!(shares > 0);
+           if shares <= 0 {
+            panic!(
+                 "Expected given liquidity pool SHARES are equal to 0,
+                 cannot proceed with liquidity pool provision."
+            )
+            }
 
            //function to return the precenrage diff between the expected lp token that was shown in the front-end and the final shares amount.
            let precentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
 
            //Validating slippage
-           assert!(precentage_diff < slippage.try_into().unwrap());
+           if precentage_diff > slippage.try_into().unwrap() {
+            panic!(
+                "The percentage difference is bigger than the given slippage,
+                kindly re-adjust the slippage settings."
+            )
+            }
 
            let user_current_balance_token1 = PSP22Ref::balance_of(&self.psp22_token1_address, self.env().caller());
 
-           assert!(user_current_balance_token1 >= psp22_token1_deposit_amount);
+           if user_current_balance_token1 < psp22_token1_deposit_amount {
+            panic!(
+                 "Caller does not have enough PSP22_1 tokens to provide to pool,
+                 kindly lower the amount of deposited PSP22_1 tokens."
+            )
+            }
 
            let user_current_balance_token2 = PSP22Ref::balance_of(&self.psp22_token2_address, self.env().caller());
 
-           assert!(user_current_balance_token2 >= psp22_token2_deposit_amount);
+           if user_current_balance_token2 < psp22_token2_deposit_amount {
+            panic!(
+                 "Caller does not have enough PSP22_2 tokens to provide to pool,
+                 kindly lower the amount of deposited PSP22_2 tokens."
+            )
+            }
 
            let contract_token1_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
            //making sure trading pair contract has enough allowance.
-           assert!(contract_token1_allowance >= psp22_token1_deposit_amount);
+           if contract_token1_allowance < psp22_token1_deposit_amount {
+            panic!(
+                 "Trading pair does not have enough allowance to transact,
+                 make sure you approved the amount of deposited PSP22_1 tokens."
+            )
+            }
 
            let contract_token2_allowance = PSP22Ref::allowance(&self.psp22_token2_address, self.env().caller(),Self::env().account_id());
            //making sure trading pair contract has enough allowance.
-           assert!(contract_token2_allowance >= psp22_token2_deposit_amount);
+           if contract_token2_allowance < psp22_token2_deposit_amount {
+            panic!(
+                 "Trading pair does not have enough allowance to transact,
+                 make sure you approved the amount of deposited PSP22_2 tokens."
+            )
+            }
 
            //cross contract call to psp22 token1 contract to transfer psp22 token1 to the Pair contract
-           PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+           if PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+            panic!(
+                "Error in PSP22_1 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_1 tokens amount."
+           )
+           }
            //cross contract call to psp22 token2 contract to transfer psp22 token2 to the Pair contract
-           PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+           if PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+            panic!(
+                "Error in PSP22_2 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_2 tokens amount."
+           )
+           }
+
                        
           
 
@@ -145,31 +184,39 @@ pub mod trading_pair_psp22 {
            //caller address
            let caller = self.env().caller();
            //caller total LP shares
-           let _caller_shares = self.balances.get(&caller).unwrap_or(0);
+           let caller_shares = self.balances.get(&caller).unwrap_or(0);
 
            //Validating that the caller has the given number of shares.
-           assert!(_caller_shares >= shares);
+           if caller_shares < shares {
+            panic!(
+                 "Caller does not have enough liquidity pool SHARES to withdraw,
+                  kindly lower the liquidity pool SHARES withdraw amount."
+            )
+            }
 
            //Amount of psp22 token1 to give to the caller
            let psp22_token1_amount_to_give = self.get_psp22_token1_withdraw_tokens_amount(shares);
            //Amount of psp22 token1 to give to the caller
            let psp22_token2_amount_to_give = self.get_psp22_token2_withdraw_tokens_amount(shares);
            
+           //cross contract call to PSP22 token1 contract to transfer PSP22 token1 to the caller
+           if PSP22Ref::transfer(&self.psp22_token1_address, caller, psp22_token1_amount_to_give, ink_prelude::vec![]).is_err() {
+            panic!(
+                "Error in PSP22_1 transfer cross contract call function, kindly re-adjust withdraw shares amount."
+            )
+            }
+           
+           //cross contract call to PSP22 token2 contract to transfer PSP22 token2 to the caller
+           if PSP22Ref::transfer(&self.psp22_token2_address, caller, psp22_token2_amount_to_give, ink_prelude::vec![]).is_err() {
+            panic!(
+                "Error in PSP22_2 transfer cross contract call function, kindly re-adjust withdraw shares amount."
+            )
+            }
+
            //reducing caller LP token balance_caller_shares
-           self.balances.insert(caller, &(_caller_shares - shares));
+           self.balances.insert(caller, &(caller_shares - shares));
            //reducing over LP token supply (burn)
            self.total_supply -= shares;
-
-           
-           //cross contract call to PSP22 token1 contract to approve PSP22 token1 to give to caller
-          // PSP22Ref::approve(&self.psp22_token1_address, caller,psp22_token1_amount_to_give).fire().expect("approve failed").expect("approve failed");
-           //cross contract call to PSP22 token1 contract to transfer PSP22 token1 to the caller
-           let _response_1 = PSP22Ref::transfer(&self.psp22_token1_address, caller, psp22_token1_amount_to_give, ink_prelude::vec![]);
-           
-           //cross contract call to PSP22 token2 contract to approve PSP22 token2 to give to caller
-           //PSP22Ref::approve(&self.psp22_token2_address, caller,psp22_token1_amount_to_give).fire().expect("approve failed").expect("approve failed");
-           //cross contract call to PSP22 token2 contract to transfer PSP22 token2 to the caller
-           let _response_2 = PSP22Ref::transfer(&self.psp22_token2_address, caller, psp22_token2_amount_to_give, ink_prelude::vec![]);
 
 
 
@@ -303,8 +350,8 @@ pub mod trading_pair_psp22 {
             //Init variable
             let mut amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
-           //validating if user has more than 1000 PANX
-           if user_current_balance >= 1000 * 10u128.pow(12){
+           //validating if user has more than 3500 PANX
+           if user_current_balance >= 3500 * 10u128.pow(12){
 
             if self.fee  <= 1400000000000 {
                  amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) / 2));
@@ -316,10 +363,7 @@ pub mod trading_pair_psp22 {
          }
 
 
-
-            let numerator = amount_in_with_fees * self.get_psp22_token2_reserve();
-            let deno = (self.get_psp22_token1_reserve() * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
+            let amount_out = (amount_in_with_fees * self.get_psp22_token2_reserve()) / ((self.get_psp22_token1_reserve() * 100) + amount_in_with_fees);
             
             return amount_out                        
 
@@ -336,8 +380,8 @@ pub mod trading_pair_psp22 {
             //Init variable
             let mut amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
-            //validating if user has more than 1000 PANX
-            if user_current_balance >= 1000 * 10u128.pow(12){
+            //validating if user has more than 3500 PANX
+            if user_current_balance >= 3500 * 10u128.pow(12){
 
                 if self.fee  <= 1400000000000 {
                      amount_in_with_fees = amount_in * (100 - ((self.fee / 10u128.pow(12)) / 2));
@@ -349,9 +393,7 @@ pub mod trading_pair_psp22 {
              }
 
 
-            let numerator = amount_in_with_fees * self.get_psp22_token1_reserve();
-            let deno = (self.get_psp22_token2_reserve() * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
+            let amount_out = (amount_in_with_fees * self.get_psp22_token1_reserve()) / ((self.get_psp22_token2_reserve() * 100) + amount_in_with_fees);
             
             return amount_out                        
 
@@ -368,9 +410,8 @@ pub mod trading_pair_psp22 {
             //calc the amount_in with current fees to transfer to the LP providers.
             let amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
-            let numerator = amount_in_with_fees * (self.get_psp22_token2_reserve() - psp22_token2_amount_out );
-            let deno = ((self.get_psp22_token1_reserve() + amount_in_with_fees ) * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
+            let amount_out = (amount_in_with_fees * (self.get_psp22_token2_reserve() - psp22_token2_amount_out)) / (((self.get_psp22_token1_reserve() + amount_in_with_fees ) * 100) + amount_in_with_fees);
+
             
             return amount_out    
 
@@ -386,9 +427,7 @@ pub mod trading_pair_psp22 {
             //calc the amount_in with current fees to transfer to the LP providers.
             let amount_in_with_fees = amount_in * (100 - (self.fee / 10u128.pow(12)));
 
-            let numerator = amount_in_with_fees * (self.get_psp22_token1_reserve() - psp22_token1_amount_out );
-            let deno = ((self.get_psp22_token2_reserve() + amount_in_with_fees ) * 100) + amount_in_with_fees;
-            let amount_out = numerator / deno;
+            let amount_out = (amount_in_with_fees * (self.get_psp22_token1_reserve() - psp22_token1_amount_out)) / (((self.get_psp22_token2_reserve() + amount_in_with_fees ) * 100) + amount_in_with_fees);
             
             return amount_out  
 
@@ -403,28 +442,51 @@ pub mod trading_pair_psp22 {
             //fetching user current PSP22 balance
             let user_current_balance = PSP22Ref::balance_of(&self.psp22_token1_address, self.env().caller());
             //making sure user has more or equal to the amount he transfers.
-            assert!(user_current_balance >= psp22_token1_amount_to_swap);
+            if user_current_balance < psp22_token1_amount_to_swap {
+                panic!(
+                    "Caller balance is lower than the amount of PSP22_1 token he wishes to trasnfer,
+                    kindly lower your deposited PSP22_1 tokens amount."
+                )
+            }
 
             let contract_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
             //making sure trading pair contract has enough allowance.
-            assert!(contract_allowance >= psp22_token1_amount_to_swap);
+            if contract_allowance < psp22_token1_amount_to_swap {
+                panic!(
+                    "Trading pair does not have enough allowance to transact,
+                    make sure you approved the amount of deposited PSP22_1 tokens before swapping."
+                )
+            }
             
             //the amount of A0 to give to the caller.
             let amount_out = self.get_est_price_psp22_token1_to_psp22_token2(psp22_token1_amount_to_swap);
 
 
             //cross contract call to PSP22 contract to transfer PSP22 to the Trading Pair contract (self)
-            PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_amount_to_swap, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+            if PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_amount_to_swap, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+                panic!(
+                    "Error in PSP22_1 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_1 tokens."
+               )
+               }
 
 
             //precentage dif between given A0 amount (from front-end) and acutal final AO amount
             let precentage_diff = self.check_diffrenece(amount_to_validate,amount_out);
 
             //Validating slippage
-            assert!(precentage_diff < slippage.try_into().unwrap());
+            if precentage_diff > slippage.try_into().unwrap() {
+                panic!(
+                    "The percentage difference is bigger than the given slippage,
+                    kindly re-adjust the slippage settings."
+                )
+            }
 
             //fun to transfer PSP22 token2 to caller
-            let _response_1 = PSP22Ref::transfer(&self.psp22_token2_address, self.env().caller(), amount_out, ink_prelude::vec![]);
+            if PSP22Ref::transfer(&self.psp22_token2_address, self.env().caller(), amount_out, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22_2 transfer cross contract call function, kindly re-adjust PSP22_1 deposit amount."
+                )
+            }
 
 
             //increase num of trans
@@ -441,11 +503,21 @@ pub mod trading_pair_psp22 {
             //fetching user current PSP22 balance
             let user_current_balance = PSP22Ref::balance_of(&self.psp22_token2_address, self.env().caller());
             //making sure user has more or equal to the amount he transfers.
-            assert!(user_current_balance >= psp22_token2_amount_to_swap);
+            if user_current_balance < psp22_token2_amount_to_swap {
+                panic!(
+                    "Caller balance is lower than the amount of PSP22_2 token he wishes to trasnfer,
+                    kindly lower your deposited PSP22_2 tokens amount."
+                )
+            }
 
             let contract_allowance = PSP22Ref::allowance(&self.psp22_token2_address, self.env().caller(),Self::env().account_id());
             //making sure trading pair contract has enough allowance.
-            assert!(contract_allowance >= psp22_token2_amount_to_swap);
+            if contract_allowance < psp22_token2_amount_to_swap {
+                panic!(
+                    "Trading pair does not have enough allowance to transact,
+                    make sure you approved the amount of deposited PSP22_2 tokens before swapping."
+                )
+            }
 
 
             //the amount of A0 to give to the caller.
@@ -453,18 +525,30 @@ pub mod trading_pair_psp22 {
 
 
             //cross contract call to PSP22 contract to transfer PSP22 to the Trading Pair contract (self)
-            PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_amount_to_swap, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").expect("Transfer failed");
+            if PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_amount_to_swap, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+                panic!(
+                    "Error in PSP22_2 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_2 tokens."
+               )
+            }
 
 
             //precentage dif between given A0 amount (from front-end) and acutal final AO amount
             let precentage_diff = self.check_diffrenece(amount_to_validate,amount_out);
 
             //Validating slippage
-            assert!(precentage_diff < slippage.try_into().unwrap());
+            if precentage_diff > slippage.try_into().unwrap() {
+                panic!(
+                    "The percentage difference is bigger than the given slippage,
+                    kindly re-adjust the slippage settings."
+                )
+            }
 
-            //fun to transfer PSP22 token2 to swapper
-            let _response_1 = PSP22Ref::transfer(&self.psp22_token1_address, self.env().caller(), amount_out, ink_prelude::vec![]);
-
+            //function to transfer PSP22 token2 to swapper
+            if PSP22Ref::transfer(&self.psp22_token1_address, self.env().caller(), amount_out, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22_1 transfer cross contract call function, kindly re-adjust PSP22_2 deposit amount."
+                )
+            }
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
@@ -501,10 +585,9 @@ pub mod trading_pair_psp22 {
 
         ///function to get shares of specific account
         #[ink(message)]
-        pub fn get_lp_token_of(&self,of: AccountId) -> Balance {
-            let of_balance = self.balances.get(&of).unwrap_or(0);
-
-            of_balance
+        pub fn get_lp_token_of(&self,account: AccountId) -> Balance {
+            let account_balance = self.balances.get(&account).unwrap_or(0);
+            account_balance
         }
         ///function to get contract PSP22 token2 reserve (self)
         #[ink(message)]
@@ -539,15 +622,6 @@ pub mod trading_pair_psp22 {
 
             diff
             
-        }
-
-        #[ink(message, payable, selector = 0xCAFEBABE)]
-        pub fn was_it_ten(&self) {
-            ink_env::debug_println!(
-                "received payment: {}",
-                self.env().transferred_value()
-            );
-            assert!(self.env().transferred_value() == 10, "payment was not ten");
         }
  
     }
