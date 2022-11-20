@@ -76,7 +76,73 @@ pub mod trading_pair_psp22 {
        #[ink(message,payable)]
        pub fn provide_to_pool(&mut self,psp22_token1_deposit_amount:u128,psp22_token2_deposit_amount:u128,excpeted_lp_tokens:u128,slippage:u128)  {
 
+           let mut psp22_token1_deposit = psp22_token1_deposit_amount;
+
+           let mut psp22_token2_deposit = psp22_token2_deposit_amount;
+
            //init LP shares variable (shares to give to provider)
+
+           let user_current_balance_token1 = PSP22Ref::balance_of(&self.psp22_token1_address, self.env().caller());
+
+           if user_current_balance_token1 < psp22_token1_deposit {
+            panic!(
+                 "Caller does not have enough PSP22_1 tokens to provide to pool,
+                 kindly lower the amount of deposited PSP22_1 tokens."
+            )
+            }
+
+           let user_current_balance_token2 = PSP22Ref::balance_of(&self.psp22_token2_address, self.env().caller());
+
+           if user_current_balance_token2 < psp22_token2_deposit {
+            panic!(
+                 "Caller does not have enough PSP22_2 tokens to provide to pool,
+                 kindly lower the amount of deposited PSP22_2 tokens."
+            )
+            }
+
+            let contract_token1_starting_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
+            
+            let contract_token2_starting_balance = PSP22Ref::balance_of(&self.psp22_token2_address, Self::env().account_id());
+
+           let contract_token1_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
+           //making sure trading pair contract has enough allowance.
+           if contract_token1_allowance < psp22_token1_deposit {
+            panic!(
+                 "Trading pair does not have enough allowance to transact,
+                 make sure you approved the amount of deposited PSP22_1 tokens."
+            )
+            }
+
+           let contract_token2_allowance = PSP22Ref::allowance(&self.psp22_token2_address, self.env().caller(),Self::env().account_id());
+           //making sure trading pair contract has enough allowance.
+           if contract_token2_allowance < psp22_token2_deposit {
+            panic!(
+                 "Trading pair does not have enough allowance to transact,
+                 make sure you approved the amount of deposited PSP22_2 tokens."
+            )
+            }
+
+           //cross contract call to psp22 token1 contract to transfer psp22 token1 to the Pair contract
+           if PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_deposit, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+            panic!(
+                "Error in PSP22_1 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_1 tokens amount."
+           )
+           }
+           //cross contract call to psp22 token2 contract to transfer psp22 token2 to the Pair contract
+           if PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_deposit, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+            panic!(
+                "Error in PSP22_2 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_2 tokens amount."
+           )
+           }
+
+           let contract_token1_closing_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
+            
+            let contract_token2_closing_balance = PSP22Ref::balance_of(&self.psp22_token2_address, Self::env().account_id());
+
+            psp22_token1_deposit = contract_token1_closing_balance - contract_token1_starting_balance;
+
+            psp22_token2_deposit = contract_token2_closing_balance - contract_token2_starting_balance;
+
            let mut shares:Balance = 0;
           
            //if its the pool first deposit
@@ -90,7 +156,7 @@ pub mod trading_pair_psp22 {
            if self.total_supply > 0{
 
             //Shares to give to provider
-            shares = (psp22_token1_deposit_amount * self.total_supply) / self.get_psp22_token1_reserve();
+            shares = (psp22_token1_deposit * self.total_supply) / self.get_psp22_token1_reserve();
 
              
            }
@@ -113,57 +179,6 @@ pub mod trading_pair_psp22 {
                 kindly re-adjust the slippage settings."
             )
             }
-
-           let user_current_balance_token1 = PSP22Ref::balance_of(&self.psp22_token1_address, self.env().caller());
-
-           if user_current_balance_token1 < psp22_token1_deposit_amount {
-            panic!(
-                 "Caller does not have enough PSP22_1 tokens to provide to pool,
-                 kindly lower the amount of deposited PSP22_1 tokens."
-            )
-            }
-
-           let user_current_balance_token2 = PSP22Ref::balance_of(&self.psp22_token2_address, self.env().caller());
-
-           if user_current_balance_token2 < psp22_token2_deposit_amount {
-            panic!(
-                 "Caller does not have enough PSP22_2 tokens to provide to pool,
-                 kindly lower the amount of deposited PSP22_2 tokens."
-            )
-            }
-
-           let contract_token1_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
-           //making sure trading pair contract has enough allowance.
-           if contract_token1_allowance < psp22_token1_deposit_amount {
-            panic!(
-                 "Trading pair does not have enough allowance to transact,
-                 make sure you approved the amount of deposited PSP22_1 tokens."
-            )
-            }
-
-           let contract_token2_allowance = PSP22Ref::allowance(&self.psp22_token2_address, self.env().caller(),Self::env().account_id());
-           //making sure trading pair contract has enough allowance.
-           if contract_token2_allowance < psp22_token2_deposit_amount {
-            panic!(
-                 "Trading pair does not have enough allowance to transact,
-                 make sure you approved the amount of deposited PSP22_2 tokens."
-            )
-            }
-
-           //cross contract call to psp22 token1 contract to transfer psp22 token1 to the Pair contract
-           if PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
-            panic!(
-                "Error in PSP22_1 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_1 tokens amount."
-           )
-           }
-           //cross contract call to psp22 token2 contract to transfer psp22 token2 to the Pair contract
-           if PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
-            panic!(
-                "Error in PSP22_2 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_2 tokens amount."
-           )
-           }
-
-                       
           
 
            //caller current shares (if any)
@@ -288,7 +303,7 @@ pub mod trading_pair_psp22 {
 
         //function to get expected amount of LP shares.
         #[ink(message,payable)]
-        pub fn get_expected_lp_token_amount(&self,psp22_token1_deposit_amount:Balance) -> Balance {
+        pub fn get_expected_lp_token_amount(&self,psp22_token1_deposit:Balance) -> Balance {
 
            //init LP shares variable (shares to give to user)
            let mut shares:Balance = 0;
@@ -304,7 +319,7 @@ pub mod trading_pair_psp22 {
            if self.total_supply > 0{
 
                //Shares to give to provider
-               shares = (psp22_token1_deposit_amount * self.total_supply) / self.get_psp22_token1_reserve();
+               shares = (psp22_token1_deposit * self.total_supply) / self.get_psp22_token1_reserve();
              
            }
 
