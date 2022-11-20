@@ -100,8 +100,10 @@ pub mod trading_pair_psp22 {
             )
             }
 
+            //psp22 token1 starting balance
             let contract_token1_starting_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
             
+            //psp22 token2 starting balance
             let contract_token2_starting_balance = PSP22Ref::balance_of(&self.psp22_token2_address, Self::env().account_id());
 
            let contract_token1_allowance = PSP22Ref::allowance(&self.psp22_token1_address, self.env().caller(),Self::env().account_id());
@@ -135,12 +137,16 @@ pub mod trading_pair_psp22 {
            )
            }
 
+            //psp22 token1 closing balance
            let contract_token1_closing_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
-            
+
+            //psp22 token2 closing balance
             let contract_token2_closing_balance = PSP22Ref::balance_of(&self.psp22_token2_address, Self::env().account_id());
 
+            //get psp22 token1 deposited amount (considering tokens with internal tax)
             psp22_token1_deposit = contract_token1_closing_balance - contract_token1_starting_balance;
 
+            //get psp22 token2 deposited amount (considering tokens with internal tax)
             psp22_token2_deposit = contract_token2_closing_balance - contract_token2_starting_balance;
 
            let mut shares:Balance = 0;
