@@ -78,41 +78,8 @@ pub mod trading_pair_psp22 {
 
            //init LP shares variable (shares to give to provider)
            let mut shares:Balance = 0;
-          
-           //if its the pool first deposit
-           if self.total_supply == 0 {
-            
-            shares = 1000 * 10u128.pow(12);
 
-           }
 
-           //if its not the first LP deposit
-           if self.total_supply > 0{
-
-            //Shares to give to provider
-            shares = (psp22_token1_deposit_amount * self.total_supply) / self.get_psp22_token1_reserve();
-
-             
-           }
-
-           //validating that shares is greater than 0
-           if shares <= 0 {
-            panic!(
-                 "Expected given liquidity pool SHARES are equal to 0,
-                 cannot proceed with liquidity pool provision."
-            )
-            }
-
-           //function to return the precenrage diff between the expected lp token that was shown in the front-end and the final shares amount.
-           let precentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
-
-           //Validating slippage
-           if precentage_diff > slippage.try_into().unwrap() {
-            panic!(
-                "The percentage difference is bigger than the given slippage,
-                kindly re-adjust the slippage settings."
-            )
-            }
 
            let user_current_balance_token1 = PSP22Ref::balance_of(&self.psp22_token1_address, self.env().caller());
 
@@ -150,12 +117,25 @@ pub mod trading_pair_psp22 {
             )
             }
 
+           //get balance before PSP22 transfer
+           let contract_psp22_1_starting_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
+
            //cross contract call to psp22 token1 contract to transfer psp22 token1 to the Pair contract
            if PSP22Ref::transfer_from_builder(&self.psp22_token1_address, self.env().caller(), Self::env().account_id(), psp22_token1_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
             panic!(
                 "Error in PSP22_1 transferFrom cross contract call function, kindly re-adjust your deposited PSP22_1 tokens amount."
            )
            }
+
+           //get balance before PSP22 transfer
+           let contract_psp22_1_closing_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
+
+           let actual_psp22_1_deposit_amount = contract_psp22_1_closing_balance - contract_psp22_1_starting_balance;
+
+           //get balance before PSP22 transfer
+           let contract_psp22_2_starting_balance = PSP22Ref::balance_of(&self.psp22_token2_address, Self::env().account_id());
+
+
            //cross contract call to psp22 token2 contract to transfer psp22 token2 to the Pair contract
            if PSP22Ref::transfer_from_builder(&self.psp22_token2_address, self.env().caller(), Self::env().account_id(), psp22_token2_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
             panic!(
@@ -163,7 +143,72 @@ pub mod trading_pair_psp22 {
            )
            }
 
-                       
+           //get balance before PSP22 transfer
+           let contract_psp22_2_closing_balance = PSP22Ref::balance_of(&self.psp22_token1_address, Self::env().account_id());
+          
+           let actual_psp22_2_deposit_amount = contract_psp22_2_closing_balance - contract_psp22_2_starting_balance;
+
+           //if its the pool first deposit
+           if self.total_supply == 0 {
+            
+            shares = 1000 * 10u128.pow(12);
+
+           }
+
+           //if its not the first LP deposit
+           if self.total_supply > 0{
+
+            //Shares to give to provider
+            shares = (actual_psp22_1_deposit_amount * self.total_supply) / (self.get_psp22_token1_reserve() - actual_psp22_1_deposit_amount);
+
+             
+           }
+
+           //validating that shares is greater than 0
+           if shares <= 0 {
+            if PSP22Ref::transfer(&self.psp22_token1_address, self.env().caller(), actual_psp22_1_deposit_amount, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22_1 transfer cross contract call function."
+                )
+            }
+
+            if PSP22Ref::transfer(&self.psp22_token2_address, self.env().caller(), actual_psp22_2_deposit_amount, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22_2 transfer cross contract call function."
+                )
+            }
+            panic!(
+                 "Expected given liquidity pool SHARES are equal to 0,
+                 cannot proceed with liquidity pool provision."
+            )
+            }
+
+           //function to return the precenrage diff between the expected lp token that was shown in the front-end and the final shares amount.
+           let precentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
+
+           //Validating slippage
+           if precentage_diff > slippage.try_into().unwrap() {
+
+            if PSP22Ref::transfer(&self.psp22_token1_address, self.env().caller(), actual_psp22_1_deposit_amount, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22_1 transfer cross contract call function."
+                )
+            }
+
+            if PSP22Ref::transfer(&self.psp22_token2_address, self.env().caller(), actual_psp22_2_deposit_amount, ink_prelude::vec![]).is_err() {
+                panic!(
+                    "Error in PSP22_2 transfer cross contract call function."
+                )
+            }
+
+
+            panic!(
+                "The percentage difference is bigger than the given slippage,
+                kindly re-adjust the slippage settings."
+            )
+            }
+
+
           
 
            //caller current shares (if any)
@@ -445,7 +490,7 @@ pub mod trading_pair_psp22 {
             if user_current_balance < psp22_token1_amount_to_swap {
                 panic!(
                     "Caller balance is lower than the amount of PSP22_1 token he wishes to trasnfer,
-                    kindly lower your deposited PSP22_1 tokens amount."
+                    kindly lower the deposited PSP22_1 tokens amount."
                 )
             }
 

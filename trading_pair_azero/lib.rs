@@ -65,6 +65,26 @@ pub mod trading_pair_azero {
        #[ink(message,payable)]
        pub fn provide_to_pool(&mut self,a0_amount_in:u128,psp22_deposit_amount:u128,excpeted_lp_tokens:u128,slippage:u128)  {
 
+           //fetching user current psp22 balance
+           let user_current_balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
+
+           //making sure user current balance is greater than the deposit amount.
+           if user_current_balance < psp22_deposit_amount {
+            panic!(
+                 "Caller does not have enough PSP22 tokens to provide to pool,
+                 kindly lower the amount of deposited PSP22 tokens."
+            )
+            }
+
+           let contract_allowance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
+           //making sure trading pair contract has enough allowance.
+           if contract_allowance < psp22_deposit_amount {
+            panic!(
+                 "Trading pair does not have enough allowance to transact,
+                 make sure you approved the amount of deposited PSP22 tokens."
+            )
+            }
+
            //init LP shares variable (shares to give to provider)
            let mut shares:Balance = 0;
            
@@ -105,28 +125,6 @@ pub mod trading_pair_azero {
                 kindly re-adjust the slippage settings."
             )
             }
-
-
-           //fetching user current psp22 balance
-           let user_current_balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
-
-           //making sure user current balance is greater than the deposit amount.
-           if user_current_balance < psp22_deposit_amount {
-            panic!(
-                 "Caller does not have enough PSP22 tokens to provide to pool,
-                 kindly lower the amount of deposited PSP22 tokens."
-            )
-            }
-
-           let contract_allowance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
-           //making sure trading pair contract has enough allowance.
-           if contract_allowance < psp22_deposit_amount {
-            panic!(
-                 "Trading pair does not have enough allowance to transact,
-                 make sure you approved the amount of deposited PSP22 tokens."
-            )
-            }
-
 
 
            //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
