@@ -33,7 +33,7 @@ pub mod pair_creator {
         }
 
         #[ink(message,payable)]
-        pub fn create_azero_trading_pair(&mut self,azero_trading_pair_hash: Hash,version:u32,psp22_addrr:AccountId,fee:u128,panx_contract:AccountId) -> AccountId {
+        pub fn create_azero_trading_pair(&mut self,azero_trading_pair_hash: Hash,version:u32,psp22_addrr:AccountId,fee:Balance,panx_contract:AccountId) -> AccountId {
 
             
             let salt = version.to_le_bytes();
@@ -58,7 +58,7 @@ pub mod pair_creator {
         }
 
         #[ink(message,payable)]
-        pub fn create_psp22_trading_pair(&mut self,psp22_trading_pair_hash: Hash,version:u32,psp22_token1_addrr:AccountId,psp22_token2_addrr:AccountId,fee:u128,panx_contract:AccountId) -> AccountId {
+        pub fn create_psp22_trading_pair(&mut self,psp22_trading_pair_hash: Hash,version:u32,psp22_token1_addrr:AccountId,psp22_token2_addrr:AccountId,fee:Balance,panx_contract:AccountId) -> AccountId {
 
             
             let salt = version.to_le_bytes();

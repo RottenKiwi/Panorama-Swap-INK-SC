@@ -95,7 +95,7 @@ pub mod vesting_contract {
            //caller address
            let account = self.env().caller();
            //current account locked tokens
-           let account_balance = self.balances.get(&account).unwrap_or(0);
+           let account_balance:Balance = self.balances.get(&account).unwrap_or(0);
            //making sure account didnt redeem tge yet
            if self.collected_tge.get(&account).unwrap_or(0) != 0 {
             panic!(
@@ -116,11 +116,12 @@ pub mod vesting_contract {
            let amount_to_give = account_balance - account_balance_with_tge_amount;
 
            //transfers the TGE tokens to caller
-           if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]).is_err() {
+           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]).unwrap_or_else(|error| {
             panic!(
-                "Error in PSP22 transfer cross contract call function, make sure that the vesting contract has enough PANX "
+                "Failed to transfer PSP22 tokens to caller : {:?}",
+                error
             )
-            }
+            });
            //deducts from overall vesting amount to give
            self.balances.insert(account, &(account_balance - amount_to_give));
 
@@ -141,13 +142,13 @@ pub mod vesting_contract {
             //current timestamp
             let current_tsp = self.get_current_timestamp();
             //account total locked PANX amount
-            let account_total_vesting_amount = self.get_account_total_vesting_amount(account);
+            let account_total_vesting_amount:Balance = self.get_account_total_vesting_amount(account);
 
         
             //last time account (caller) redeemed tokens
             let last_redeemed = self.last_redeemed.get(account).unwrap_or(0);
             //How many PANX tokens to give to account each day
-            let panx_to_give_each_day = self.panx_to_give_in_a_day.get(account).unwrap_or(0);
+            let panx_to_give_each_day:Balance = self.panx_to_give_in_a_day.get(account).unwrap_or(0);
             //days since last redeem
             let days_diff = (current_tsp - last_redeemed) / 86400;
             //making sure that 24 hours has passed since last redeem
@@ -190,30 +191,30 @@ pub mod vesting_contract {
             //caller total locked PANX 
             let account_total_vesting_amount = self.get_account_total_vesting_amount(account);
 
-
-            let mut amount_redeemable_amount = self.get_redeemable_amount();
+            let mut redeemable_amount = self.get_redeemable_amount();
 
             //Making sure to set his last redeem to current timestamp
             self.last_redeemed.insert(account,&current_tsp);
 
             //make sure to deducte from overall amount
-            self.balances.insert(account, &(account_total_vesting_amount -  amount_redeemable_amount));
+            self.balances.insert(account, &(account_total_vesting_amount -  redeemable_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
-            if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_redeemable_amount, ink_prelude::vec![]).is_err() {
+            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), redeemable_amount, ink_prelude::vec![]).unwrap_or_else(|error| {
                 panic!(
-                    "Error in PSP22 transfer cross contract call function, make sure that the vesting contract has enough PANX."
+                    "Failed to transfer PSP22 tokens to caller : {:?}",
+                    error
                 )
-                }
+            });
 
         }
 
 
         ///function to get account total locked tokens
         #[ink(message)]
-        pub fn get_account_total_vesting_amount(&mut self,account:AccountId)->Balance  {
+        pub fn get_account_total_vesting_amount(&mut self,account:AccountId)-> Balance  {
         
-           let account_balance = self.balances.get(&account).unwrap_or(0);
+           let account_balance:Balance = self.balances.get(&account).unwrap_or(0);
            account_balance
 
         }
@@ -227,15 +228,15 @@ pub mod vesting_contract {
         }
         ///function to get the amount of tokens to give to account each day.
         #[ink(message)]
-        pub fn get_amount_to_give_each_day_to_account(&mut self,account:AccountId)->Balance  {
+        pub fn get_amount_to_give_each_day_to_account(&mut self,account:AccountId)-> Balance  {
         
-           let account_balance = self.panx_to_give_in_a_day.get(&account).unwrap_or(0);
+           let account_balance:Balance = self.panx_to_give_in_a_day.get(&account).unwrap_or(0);
            account_balance
 
         }
         ///funtion to get vesting contract PANX reserve
         #[ink(message)]
-        pub fn get_vesting_contract_panx_reserve(&self)->Balance  {
+        pub fn get_vesting_contract_panx_reserve(&self)-> Balance  {
         
             let vesting_panx_reserve = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
             vesting_panx_reserve

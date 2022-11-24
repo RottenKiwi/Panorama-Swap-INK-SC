@@ -25,8 +25,6 @@ pub mod airdrop_contract {
         manager: AccountId,
         //PANX psp22 contract address
         panx_psp22: AccountId,
-        //airdrop contract PANX reserve
-        panx_reserve: Balance,
         // 0 didnt collect, 1 did collect.
         collected_airdrop: ink_storage::Mapping<AccountId, i64>,
 
@@ -59,14 +57,17 @@ pub mod airdrop_contract {
             panic!(
                 "Caller already redeemed the airdrop, cannot redeem again."
             )
-        }
+            }
+
+            let tokens_to_transfer:Balance = 50 *10u128.pow(12);
 
            //transfers the airdrop tokens to caller
-           if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), 50 *10u128.pow(12), ink_prelude::vec![]).is_err() {
+           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink_prelude::vec![]).unwrap_or_else(|error| {
             panic!(
-                "Error in PSP22 transfer cross contract call function, make sure that the airdrop contract has enough PANX."
+                "Failed to transfer PSP22 tokens to caller : {:?}",
+                error
             )
-            }
+            });
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
         
@@ -81,15 +82,17 @@ pub mod airdrop_contract {
             panic!(
                 "Caller already redeemed the airdrop, cannot redeem again."
             )
-        }
-
-           //transfers the airdrop tokens to caller
-           if PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), 500 *10u128.pow(12), ink_prelude::vec![]).is_err() {
-            panic!(
-                "Error in PSP22 transfer cross contract call function, make sure that the airdrop contract has enough PANX."
-            )
             }
 
+            let tokens_to_transfer:Balance = 500 *10u128.pow(12);
+
+           //transfers the airdrop tokens to caller
+            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink_prelude::vec![]).unwrap_or_else(|error| {
+            panic!(
+                "Failed to transfer PSP22 tokens to caller : {:?}",
+                error
+            )
+            });
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
 
@@ -98,9 +101,9 @@ pub mod airdrop_contract {
 
         ///funtion to get airdrop contract PANX reserve
         #[ink(message)]
-        pub fn get_airdrop_contract_panx_reserve(&self)->Balance  {
+        pub fn get_airdrop_contract_panx_reserve(&self)-> Balance  {
         
-            let balance = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
+            let balance:Balance = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
             balance
 
         }

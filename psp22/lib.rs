@@ -3,6 +3,8 @@
 
 #[openbrush::contract]
 pub mod my_psp22 {
+
+
     use ink_prelude::string::String;
     //use openbrush::traits::String;
     use ink_storage::traits::SpreadAllocate;
@@ -10,6 +12,7 @@ pub mod my_psp22 {
         contracts::psp22::extensions::metadata::*,
         traits::Storage,
     };
+    use crate::my_psp22::psp22::Internal;
 
     #[ink(storage)]
     #[derive(Default, SpreadAllocate, Storage)]
@@ -21,6 +24,11 @@ pub mod my_psp22 {
     }
 
     impl PSP22 for Contract {}
+
+    impl Internal for Contract {
+        fn _emit_transfer_event(&self, _from: Option<AccountId>, _to: Option<AccountId>, _amount: Balance){}
+        fn _emit_approval_event(&self, _owner: AccountId, _spender: AccountId, _amount: Balance){}
+    }
 
     impl PSP22Metadata for Contract {}
 
