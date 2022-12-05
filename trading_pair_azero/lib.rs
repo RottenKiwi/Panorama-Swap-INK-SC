@@ -476,10 +476,10 @@ pub mod trading_pair_azero {
 
         ///function to swap a0 and psp22
         #[ink(message,payable)]
-        pub fn swap_a0(&mut self,psp22_amount_to_validate: Balance,slippage: Balance) {
+        pub fn swap_a0(&mut self,a0_amount_in:Balance,psp22_amount_to_validate: Balance,slippage: Balance) {
             
             //amount of PSP22 tokens to give to caller.
-            let psp22_amount_out:Balance = self.get_est_price_a0_to_psp22_for_swap(self.env().transferred_value());
+            let psp22_amount_out:Balance = self.get_est_price_a0_to_psp22_for_swap(a0_amount_in);
 
             //precentage dif between given PSP22 amount (from front-end) and acutal final PSP22 amount
             let precentage_diff:Balance = self.check_diffrenece(psp22_amount_to_validate,psp22_amount_out);
