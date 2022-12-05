@@ -48,7 +48,7 @@ pub mod trading_pair_azero {
     impl TradingPairAzero {
         /// Creates a new instance of this contract.
         #[ink(constructor)]
-        pub fn new(psp22_contract:AccountId, fee: u128,panx_contract:AccountId) -> Self {
+        pub fn new(psp22_contract:AccountId, fee: Balance,panx_contract:AccountId) -> Self {
             
             let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
                 contract.psp22_token = psp22_contract;  
@@ -65,7 +65,7 @@ pub mod trading_pair_azero {
        ///If its the first liquidity provision, the provider will always receive 1000 LP shares.
        ///We validate that the provider gets the correct amount of shares as displayed to him in front-end (add LP UI) and never gets 0 shares.
        #[ink(message,payable)]
-       pub fn provide_to_pool(&mut self,a0_amount_in:Balance,psp22_deposit_amount:Balance,excpeted_lp_tokens:Balance,slippage:Balance)  {
+       pub fn provide_to_pool(&mut self,psp22_deposit_amount:Balance,excpeted_lp_tokens:Balance,slippage:Balance)  {
 
            //fetching user current psp22 balance  
            let user_current_balance:Balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
@@ -76,7 +76,7 @@ pub mod trading_pair_azero {
                  "Caller does not have enough PSP22 tokens to provide to pool,
                  kindly lower the amount of deposited PSP22 tokens."
             )
-            }
+            } 
 
            let contract_allowance:Balance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
            //making sure trading pair contract has enough allowance.
@@ -102,9 +102,9 @@ pub mod trading_pair_azero {
 
 
                //We need to sub the incoming amount of A0 by the current A0 reserve (current reserve includes incoming A0)
-               let reserve_before_transaction:Balance = self.get_a0_balance() - a0_amount_in;
+               let reserve_before_transaction:Balance = self.get_a0_balance() - self.env().transferred_value();
                //Shares to give to provider
-               shares = (a0_amount_in * self.total_supply) / reserve_before_transaction;
+               shares = (self.env().transferred_value() * self.total_supply) / reserve_before_transaction;
 
              
            }
@@ -136,7 +136,7 @@ pub mod trading_pair_azero {
            )
            }
            
-                       
+                    
 
            //caller current shares (if any)
            let current_shares:Balance = self.get_lp_token_of(self.env().caller());
@@ -394,6 +394,7 @@ pub mod trading_pair_azero {
             future_amount_out
     
         }
+        
         ///function to get the estimated price impact for given A0 amount
         #[ink(message)]
         pub fn get_price_impact_a0_to_psp22(&mut self,a0_amount_in:Balance) -> Balance {
@@ -475,10 +476,10 @@ pub mod trading_pair_azero {
 
         ///function to swap a0 and psp22
         #[ink(message,payable)]
-        pub fn swap_a0(&mut self,a0_amount_in:Balance,psp22_amount_to_validate: Balance,slippage: Balance) {
+        pub fn swap_a0(&mut self,psp22_amount_to_validate: Balance,slippage: Balance) {
             
             //amount of PSP22 tokens to give to caller.
-            let psp22_amount_out:Balance = self.get_est_price_a0_to_psp22_for_swap(a0_amount_in);
+            let psp22_amount_out:Balance = self.get_est_price_a0_to_psp22_for_swap(self.env().transferred_value());
 
             //precentage dif between given PSP22 amount (from front-end) and acutal final PSP22 amount
             let precentage_diff:Balance = self.check_diffrenece(psp22_amount_to_validate,psp22_amount_out);

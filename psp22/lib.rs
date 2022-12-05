@@ -14,6 +14,7 @@ pub mod my_psp22 {
     };
     use crate::my_psp22::psp22::Internal;
 
+
     #[ink(storage)]
     #[derive(Default, SpreadAllocate, Storage)]
     pub struct Contract {
@@ -21,14 +22,19 @@ pub mod my_psp22 {
         psp22: psp22::Data,
         #[storage_field]
         metadata: metadata::Data,
-    }
 
-    impl PSP22 for Contract {}
+    }
 
     impl Internal for Contract {
         fn _emit_transfer_event(&self, _from: Option<AccountId>, _to: Option<AccountId>, _amount: Balance){}
         fn _emit_approval_event(&self, _owner: AccountId, _spender: AccountId, _amount: Balance){}
     }
+
+    impl PSP22 for Contract {
+
+    }
+
+
 
     impl PSP22Metadata for Contract {}
 
