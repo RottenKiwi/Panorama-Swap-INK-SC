@@ -1,5 +1,7 @@
 # Ignore build artifacts from the local tests sub-crate.
 /target/
+
+# Ignore DS file gene
 .DS_Store
 gensrc
 
