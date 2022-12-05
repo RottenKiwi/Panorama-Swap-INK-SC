@@ -1,5 +1,0 @@
-{
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "rust-lang.rust", // Makes the magic
-
-}
