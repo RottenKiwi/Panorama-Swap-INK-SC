@@ -2,6 +2,7 @@
 **/target/
 /target/
 .DS_Store
+gensrc
 # Ignore backup files creates by cargo fmt.
 **/*.rs.bk
 
