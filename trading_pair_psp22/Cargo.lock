@@ -908,7 +908,7 @@ dependencies = [
 
 [[package]]
 name = "trading_pair_psp22"
-version = "0.8.0"
+version = "0.9.1"
 dependencies = [
  "ink_engine",
  "ink_env",

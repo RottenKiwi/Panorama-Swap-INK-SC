@@ -18,8 +18,8 @@ ink_engine = { version = "~3.3.0", default-features = false, optional = true }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 
-trading_pair_azero = { path = "../trading_pair_azero",version="0.9.0",default-features = false, features = ["ink-as-dependency"] }
-trading_pair_psp22 = { path = "../trading_pair_psp22",version="0.8.0",default-features = false, features = ["ink-as-dependency"] }
+trading_pair_azero = { path = "../trading_pair_azero",version="0.9.1",default-features = false, features = ["ink-as-dependency"] }
+trading_pair_psp22 = { path = "../trading_pair_psp22",version="0.9.1",default-features = false, features = ["ink-as-dependency"] }
 
 
 

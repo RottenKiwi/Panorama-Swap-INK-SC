@@ -1,6 +1,6 @@
 [package]
 name = "trading_pair_psp22"
-version = "0.8.0"
+version = "0.9.1"
 authors = ["Yonatan Hornstein Yonatanhornstein@gmail.com"]
 edition = "2021"
 overflow-checks = false
