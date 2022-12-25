@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use ink_lang as ink;
+
 
 
 
@@ -13,19 +13,19 @@ pub use self::trading_pair_azero::{
 #[ink::contract]
 pub mod trading_pair_azero {
     
-    use ink_storage::traits::SpreadAllocate;
+    
     use openbrush::{
         contracts::{
 
             traits::psp22::PSP22Ref,
         },
     };
-    use ink_env::CallFlags;
+    use ink::storage::Mapping;
+    
 
     
     
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
     pub struct TradingPairAzero {
 
         //Number of overall transactions (Not including LP provision)
@@ -37,12 +37,12 @@ pub mod trading_pair_azero {
         //Total LP token supply
         total_supply: Balance,
         //LP token balances of LP providers
-        balances: ink_storage::Mapping<AccountId, Balance>,
+        balances: Mapping<AccountId, Balance>,
         //PANX contract address
         panx_contract: AccountId,
         //Store accounts LP tokens allowances
-        lp_tokens_allowances: ink_storage::Mapping<(AccountId,AccountId), Balance>,
-        //Valut account id to transfer trader's fee to
+        lp_tokens_allowances: Mapping<(AccountId,AccountId), Balance>,
+        //Account id to transfer trader's fee to
         vault: AccountId,
         //Trader's fee
         traders_fee:Balance
@@ -52,35 +52,42 @@ pub mod trading_pair_azero {
 
 
     impl TradingPairAzero {
-        /// Creates a new instance of this contract.
+        /// Creates a new instance of trading pair azero contract.
         #[ink(constructor)]
         pub fn new(psp22_contract:AccountId, fee: Balance,panx_contract:AccountId,vault:AccountId) -> Self {
-            
-            let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
-                contract.psp22_token = psp22_contract;  
-                contract.fee = fee;
-                contract.panx_contract = panx_contract;
-                contract.vault = vault;
-                let actual_traders_fee:Balance = 25000000000 / 10u128.pow(12);
-                contract.traders_fee = actual_traders_fee;
-               
-            });
-            
-            me
+
+
+            let transasction_number:i64 = 0;
+            let balances = Mapping::default();
+            let lp_tokens_allowances = Mapping::default();
+            let psp22_token = psp22_contract;
+            let total_supply = 0;
+            let traders_fee:Balance = 25000000000 / 10u128.pow(12);
+
+            Self {
+                transasction_number,
+                psp22_token,
+                fee,
+                total_supply,
+                balances,
+                panx_contract,
+                lp_tokens_allowances,
+                vault,
+                traders_fee
+            }
+
             
         }
 
-       ///function to add liquidity to PSP22/A0 pair.
-       ///If its the first liquidity provision, the provider will always receive 1000 LP shares.
-       ///We validate that the provider gets the correct amount of shares as displayed to him in front-end (add LP UI) and never gets 0 shares.
+       ///function to provide liquidity to a PSP22/A0 trading pair contract.
        #[ink(message,payable)]
        pub fn provide_to_pool(&mut self,psp22_deposit_amount:Balance,excpeted_lp_tokens:Balance,slippage:Balance)  {
 
-           //fetching user current psp22 balance  
-           let user_current_balance:Balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
+           //fetching caller current psp22 balance  
+           let caller_current_balance:Balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
 
-           //making sure user current balance is greater than the deposit amount.
-           if user_current_balance < psp22_deposit_amount {
+           //making sure that caller current PSP22 balance is greater than the deposit amount.
+           if caller_current_balance < psp22_deposit_amount {
             panic!(
                  "Caller does not have enough PSP22 tokens to provide to pool,
                  kindly lower the amount of deposited PSP22 tokens."
@@ -88,7 +95,9 @@ pub mod trading_pair_azero {
             } 
 
            let contract_allowance:Balance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
-           //making sure trading pair contract has enough allowance.
+
+
+           //making sure that trading pair contract has enough allowance.
            if contract_allowance < psp22_deposit_amount {
             panic!(
                  "Trading pair does not have enough allowance to transact,
@@ -96,25 +105,34 @@ pub mod trading_pair_azero {
             )
             }
 
-           //init LP shares variable (shares to give to provider)
+
            let mut shares:Balance = 0;
            
            //if its the pool first deposit
            if self.total_supply == 0 {
 
-               shares = 1000 * 10u128.pow(12);
+            //calculating the amount of shares to give to the provider if its the first LP deposit overall
+            shares = 1000u128 * 10u128.pow(12);
+
 
            }
 
-           //if its not the first LP deposit
+           //if its NOT the first LP deposit
            if self.total_supply > 0{
 
 
-               //We need to sub the incoming amount of A0 by the current A0 reserve (current reserve includes incoming A0)
-               let reserve_before_transaction:Balance = self.get_a0_balance() - self.env().transferred_value();
-               //Shares to give to provider
-               shares = (self.env().transferred_value() * self.total_supply) / reserve_before_transaction;
+               //we need to sub the incoming amount of A0 by the current A0 reserve (current reserve includes incoming A0)
+               let reserve_before_transaction = self.get_a0_balance() - self.env().transferred_value();
 
+               //calculating the amount of shares to give to the provider if its not the first LP deposit
+               match (self.env().transferred_value() * self.total_supply).checked_div(reserve_before_transaction) {
+                    Some(result) => {
+                        shares = result;
+                    }
+                    None => {
+                        panic!("overflow!");
+                    }
+                };
              
            }
 
@@ -126,11 +144,11 @@ pub mod trading_pair_azero {
             )
             }
 
-           //function to return the precenrage diff between the expected lp token that was shown in the front-end and the final shares amount.
-           let precentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
+           //function to return the percentage diff between the expected lp token that was shown in the front-end and the final shares amount.
+           let percentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
 
-           //Validating slippage    
-           if precentage_diff > slippage.try_into().unwrap() {
+           //validating slippage    
+           if percentage_diff > slippage.try_into().unwrap() {
             panic!(
                 "The percentage difference is bigger than the given slippage,
                 kindly re-adjust the slippage settings."
@@ -138,19 +156,31 @@ pub mod trading_pair_azero {
             }
 
 
-           //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
-           if PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_deposit_amount, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+           let current_shares:Balance = self.get_lp_token_of(self.env().caller());
+
+           let new_caller_shares:Balance;
+
+           //calculating the current caller shares with the new provided shares.
+            match current_shares.checked_add(shares) {
+                Some(result) => {
+                    new_caller_shares = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+
+           //cross contract call to psp22 contract to transfer psp22 token to the pair contract
+           if PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_deposit_amount, ink::prelude::vec![]).call_flags(ink::env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
             panic!(
                 "Error in PSP22 transferFrom cross contract call function, kindly re-adjust your deposited PSP22 tokens."
            )
            }
            
                     
-
-           //caller current shares (if any)
-           let current_shares:Balance = self.get_lp_token_of(self.env().caller());
            //increasing LP balance of caller (mint)
-           self.balances.insert(self.env().caller(), &(current_shares + shares));
+           self.balances.insert(self.env().caller(), &(new_caller_shares));
            //adding to over LP tokens (mint)
            self.total_supply += shares;
 
@@ -158,16 +188,17 @@ pub mod trading_pair_azero {
 
        }
 
-       ///Function to withdraw specific amount of LP tokens given from the front-end.
+       ///function to withdraw specific amount of LP share tokens.
        #[ink(message,payable)]
        pub fn withdraw_specific_amount(&mut self, shares: Balance)  {
           
            //caller address 
            let caller = self.env().caller();
+
            //caller total LP shares
            let caller_shares:Balance = self.balances.get(&caller).unwrap_or(0);
 
-           //Validating that the caller has the given number of shares.
+           //validating that the caller has more than the given number of shares.
            if caller_shares < shares {
             panic!(
                  "Caller does not have enough liquidity pool SHARES to withdraw,
@@ -175,19 +206,33 @@ pub mod trading_pair_azero {
             )
             }
 
-           //Amount of psp22 to give to the caller
+           //amount of PSP22 to give to the caller
            let psp22_amount_to_give:Balance = self.get_psp22_withdraw_tokens_amount(shares);
-           //Amount of psp22 to give to the caller
+
+           //amount of A0 to give to the caller
            let a0_amount_to_give:Balance = self.get_a0_withdraw_tokens_amount(shares);
+
+           let new_caller_lp_shares:Balance;
+
+           //calculating the current caller shares with the new provided shares.
+           match caller_shares.checked_sub(shares) {
+            Some(result) => {
+                new_caller_lp_shares = result;
+            }
+            None => {
+                panic!("overflow!");
+            }
+        };
            
-           //cross contract call to PANX contract to transfer PANX to the caller
-           PSP22Ref::transfer(&self.psp22_token, caller, psp22_amount_to_give, ink_prelude::vec![]).unwrap_or_else(|error| {
+           //cross contract call to PSP22 contract to transfer PSP2 to the caller.
+           PSP22Ref::transfer(&self.psp22_token, caller, psp22_amount_to_give, ink::prelude::vec![]).unwrap_or_else(|error| {
             panic!(
                 "Failed to transfer PSP22 tokens to caller : {:?}",
                 error
             )
             });
-           //fun to transfer A0 to the caller
+
+           //function to transfer A0 to the caller
            if self.env().transfer(self.env().caller(), a0_amount_to_give).is_err() {
                panic!(
                    "requested transfer failed. this can be the case if the contract does not\
@@ -197,7 +242,7 @@ pub mod trading_pair_azero {
            }
 
            //reducing caller LP token balance
-           self.balances.insert(caller, &(caller_shares - shares));
+           self.balances.insert(caller, &(new_caller_lp_shares));
            //reducing over LP token supply (burn)
            self.total_supply -= shares;
 
@@ -205,16 +250,33 @@ pub mod trading_pair_azero {
        }
 
 
-        ///funtion to get amount of withdrable PSP22/A0 tokens by given number of LP shares.
+        ///funtion to get the amount of withdrawable PSP22 and A0 by given number of LP shares.
         #[ink(message)]
-        pub fn get_withdraw_tokens_amount(&self, share_amount: Balance) -> (Balance,Balance) {
+        pub fn get_withdraw_tokens_amount(&self, shares_amount: Balance) -> (Balance,Balance) {
 
+            let amount_of_a0_to_give:Balance;
 
+            //calculating the amount of A0 to give to the caller.
+            match (shares_amount * self.get_a0_balance()).checked_div(self.total_supply) {
+                Some(result) => {
+                    amount_of_a0_to_give = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
-            //calc amount of A0 to give 
-            let amount_of_a0_to_give:Balance = (share_amount * self.get_a0_balance()) / self.total_supply;
-            //calc amount of PANX to give 
-            let amount_of_psp22_to_give:Balance = (share_amount * self.get_psp22_balance()) / self.total_supply;
+            let amount_of_psp22_to_give:Balance;
+
+            //calculating the amount of PSP22 to give to the caller.
+            match (shares_amount * self.get_psp22_balance()).checked_div(self.total_supply) {
+                Some(result) => {
+                    amount_of_psp22_to_give = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
         
 
             (amount_of_a0_to_give,amount_of_psp22_to_give)
@@ -222,68 +284,121 @@ pub mod trading_pair_azero {
         }
 
 
-        ///function to get the amount of withdrawable psp22 tokens by given shares.
+        ///funtion to get the amount of withdrawable PSP22 by given number of LP shares.
         #[ink(message)]
-        pub fn get_psp22_withdraw_tokens_amount(&self, share_amount: Balance) -> Balance {
+        pub fn get_psp22_withdraw_tokens_amount(&self, shares_amount: Balance) -> Balance {
 
-            //calc amount of PANX to give 
-            let amount_of_psp22_to_give:Balance = (share_amount * self.get_psp22_balance()) / self.total_supply;
+            let amount_of_psp22_to_give:Balance;
+
+            //calculating the amount of PSP22 to give to the caller.
+            match (shares_amount * self.get_psp22_balance()).checked_div(self.total_supply) {
+                Some(result) => {
+                    amount_of_psp22_to_give = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
             amount_of_psp22_to_give
         
         }
 
-        ///function to get the amount of withdrawable A0 by given LP shares.
+        ///funtion to get the amount of withdrawable A0 by given number of LP shares.
         #[ink(message)]
-        pub fn get_a0_withdraw_tokens_amount(&self, share_amount: Balance) -> Balance {
+        pub fn get_a0_withdraw_tokens_amount(&self, shares_amount: Balance) -> Balance {
 
-            //calc amount of A0 to give 
-            let amount_of_a0_to_give:Balance = (share_amount * self.get_a0_balance()) / self.total_supply;
+
+            let amount_of_a0_to_give:Balance;
+
+            //calculating the amount of A0 to give to the caller.
+            match (shares_amount * self.get_a0_balance()).checked_div(self.total_supply) {
+                Some(result) => {
+                    amount_of_a0_to_give = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
             
             amount_of_a0_to_give
         
         }
 
         
-        ///function to get caller pooled PSP22 tokens and A0
+        ///function to get the callers pooled PSP22 and A0.
         #[ink(message)]
         pub fn get_account_locked_tokens(&self,account_id:AccountId) -> (Balance,Balance) {
            
             //account address
-            let user = account_id;
+            let caller = account_id;
             //get account LP tokens 
-            let user_shares:Balance = self.balances.get(&user).unwrap_or(0);
+            let caller_shares:Balance = self.balances.get(&caller).unwrap_or(0);
 
-            //calc amount of A0 to give 
-            let amount_of_a0_to_give:Balance = (user_shares * self.get_a0_balance()) / self.total_supply;
-            //calc amount of PANX to give 
-            let amount_of_psp22_to_give:Balance = (user_shares * self.get_psp22_balance()) / self.total_supply;
+            let mut amount_of_a0_to_give:Balance = 0;
 
+            let mut amount_of_psp22_to_give:Balance = 0;
+
+
+            if caller_shares <= 0 {
+
+                return (amount_of_psp22_to_give,amount_of_a0_to_give)
+                 
+            }
+
+            
+            //calculating the amount of A0 to give to the caller.
+            match (caller_shares * self.get_a0_balance()).checked_div(self.total_supply) {
+                Some(result) => {
+                    amount_of_a0_to_give = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            //calculating the amount of PSP22 to give to the caller.
+            match (caller_shares * self.get_psp22_balance()).checked_div(self.total_supply) {
+                Some(result) => {
+                    amount_of_psp22_to_give = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
            
             (amount_of_psp22_to_give,amount_of_a0_to_give)
 
             
         }
 
-        //function to get expected amount of LP shares.
+        //function to get the expected amount of LP shares by given A0 amount.
         #[ink(message)]
         pub fn get_expected_lp_token_amount(&self,a0_deposit_amount:Balance) -> Balance {
 
-           //init LP shares variable (shares to give to user)
+
            let mut shares:Balance = 0;
            
-           //if its the caller first deposit 
+           //if its the trading pair first deposit 
            if self.total_supply == 0 {
 
-               shares = 1000 * 10u128.pow(12);
+            //calculating the amount of shares to give to the provider if its the first LP deposit overall
+            shares = 1000u128 * 10u128.pow(12);
 
            }
            
            //if its not the first LP deposit
            if self.total_supply > 0{
 
-               //Shares to give to provider
-               shares = (a0_deposit_amount * self.total_supply) / self.get_a0_balance();   
+               //calculating the amount of shares to give to the provider if its not the first LP deposit
+               match (a0_deposit_amount * self.total_supply).checked_div(self.get_a0_balance()) {
+                Some(result) => {
+                    shares = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+                };
 
            }
 
@@ -292,87 +407,182 @@ pub mod trading_pair_azero {
         }
  
 
-        ///function to get the amount of A0 given for 1 PSP22 token
-	    #[ink(message)]
+        ///function to get the amount of A0 the caller will get for 1 PSP22 token.
         pub fn get_price_for_one_psp22(&self)-> Balance {
 
-            let one_token:Balance = 1*10u128.pow(12);
-
-            let amount_out:Balance = self.get_est_price_psp22_to_a0(one_token);
+            let amount_out = self.get_est_price_psp22_to_a0(1u128 * (10u128.pow(12)));
 
             amount_out
         }
 
-        ///function to get the amount of A0 the caller will get for given PSP22 amount
+        ///function to get the amount of A0 the caller will get for given PSP22 amount.
         #[ink(message)]
-        pub fn get_est_price_psp22_to_a0(&self, amount_in:Balance)-> Balance {
+        pub fn get_est_price_psp22_to_a0(&self, psp22_amount_in:Balance)-> Balance {
 
-            //fetching user current PSP22 balance
-            let user_current_balance:Balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+            //fetching caller current PSP22 balance
+            let caller_current_balance:Balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
-            let actual_fee:Balance = self.fee / 10u128.pow(12);
+            let actual_fee:Balance;
 
-            //Init variable
-            let mut amount_in_with_lp_fees:Balance = amount_in * (100 - actual_fee);
+            //calculating the actual LP fee
+            match self.fee.checked_div(10u128.pow(12)) {
+                Some(result) => {
+                    actual_fee = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
-            
+            let mut amount_in_with_lp_fees:Balance;
 
-            let tokens_to_validate:Balance = 3500 * 10u128.pow(12);
+            //reducting the LP fee from the PSP22 amount in
+            match psp22_amount_in.checked_mul(100u128 - actual_fee) {
+                Some(result) => {
+                    amount_in_with_lp_fees = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
-            //validating if user has more than 3500 PANX
-            if user_current_balance >= tokens_to_validate{
+            let tokens_to_validate:Balance = 3500u128 * 10u128.pow(12);
 
-                if self.fee  <= 1400000000000 {
-                    amount_in_with_lp_fees = amount_in * (100 - (actual_fee / 2));
+           //validating if caller has more than 3500 PANX to verify if the caller is eligible for the incentive program 
+           if caller_current_balance >= tokens_to_validate{
 
-                    
+                if self.fee  <= 1400000000000u128 {
+
+                    //reducting HALF of the LP fee from PSP22 amount in, if the caller has more than 3500 PANX and the LP fee is less than 1.4%
+                    match psp22_amount_in.checked_mul(100u128 - (actual_fee / 2u128)) {
+                        Some(result) => {
+                            amount_in_with_lp_fees = result;
+                        }
+                        None => {
+                            panic!("overflow!");
+                        }
+                    };   
                 }
  
-                if self.fee  > 1400000000000 {
-                    amount_in_with_lp_fees = amount_in * (100 - (actual_fee - 1));
+                if self.fee  > 1400000000000u128 {
 
-                    
+                    //reducting (LP fee - 1) of the LP fee from PSP22 amount in, if the caller has more than 3500 PANX and the LP fee is more than 1.4%
+                    match psp22_amount_in.checked_mul(100u128 - (actual_fee - 1u128)) {
+                        Some(result) => {
+                            amount_in_with_lp_fees = result;
+                        }
+                        None => {
+                            panic!("overflow!");
+                        }
+                    };  
                 }
              }
 
-
-            let amount_out:Balance = (amount_in_with_lp_fees * self.get_a0_balance()) / ((self.get_psp22_balance() * 100) + amount_in_with_lp_fees);
+             
+            let a0_amount_out:Balance;
             
-            return amount_out                        
+            //calculating the final A0 amount to transfer to the caller.
+            match (amount_in_with_lp_fees * self.get_a0_balance()).checked_div((self.get_psp22_balance() * 100u128) + amount_in_with_lp_fees) {
+                Some(result) => {
+                    a0_amount_out = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            return a0_amount_out  
 
         }
 
         ///function to get the amount of PSP22 the caller will get for given A0 amount (swap use)
         #[ink(message,payable)]
-        pub fn get_est_price_a0_to_psp22_for_swap(&self,ao_amount_to_transfer:Balance) -> Balance { 
+        pub fn get_est_price_a0_to_psp22_for_swap(&self,a0_amout_in:Balance) -> Balance { 
 
-            //We need to calc the A0 reserve before swapping.
-            let a0_reserve_before:Balance = self.get_a0_balance() - ao_amount_to_transfer;
 
-            //fetching user current PSP22 balance
-            let user_current_balance:Balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+            let a0_reserve_before:Balance;
 
-            let actual_fee:Balance = self.fee / 10u128.pow(12);
+            //calculating the A0 contract reserve before the transaction
+            match self.get_a0_balance().checked_sub(a0_amout_in) {
+                Some(result) => {
+                    a0_reserve_before = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
-            //Init variable
-            let mut amount_in_with_fees:Balance = ao_amount_to_transfer * (100 - (actual_fee));
+            let caller_current_balance:Balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
 
-            let tokens_to_validate:Balance = 3500 * 10u128.pow(12);
+            let actual_fee:Balance;
 
-            //validating if user has more than 3500 PANX
-            if user_current_balance >= tokens_to_validate{
+            //calculating the actual LP fee
+            match self.fee.checked_div(10u128.pow(12)) {
+                Some(result) => {
+                    actual_fee = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+
+            let mut amount_in_with_lp_fees:Balance;
+
+            //reducting the LP fee from the A0 amount in
+            match a0_amout_in.checked_mul(100u128 - actual_fee) {
+                Some(result) => {
+                    amount_in_with_lp_fees = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            let tokens_to_validate = 3500u128 * 10u128.pow(12);
+
+            //validating if the caller has more than 3500 PANX
+            if caller_current_balance >= tokens_to_validate{
 
                 if self.fee  <= 1400000000000 {
-                     amount_in_with_fees = ao_amount_to_transfer * (100 - ((actual_fee) / 2));
+
+                    //reducting HALF of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is less than 1.4%
+                    match a0_amout_in.checked_mul(100u128 - (actual_fee / 2u128)) {
+                        Some(result) => {
+                            amount_in_with_lp_fees = result;
+                        }
+                        None => {
+                            panic!("overflow!");
+                        }
+                    };
                 }
  
                 if self.fee  > 1400000000000 {
-                     amount_in_with_fees = ao_amount_to_transfer * (100 - ((actual_fee) - 1));
+
+                    //reducting (LP fee - 1) of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is more than 1.4%
+                    match a0_amout_in.checked_mul(100u128 - (actual_fee - 1u128)) {
+                        Some(result) => {
+                            amount_in_with_lp_fees = result;
+                        }
+                        None => {
+                            panic!("overflow!");
+                        }
+                    };
                 }
              }
 
 
-            let amount_out:Balance = (amount_in_with_fees * self.get_psp22_balance()) / ((a0_reserve_before * 100) + amount_in_with_fees);
+            let amount_out:Balance;
+
+            //calculating the final PSP22 amount to transfer to the caller.
+            match (amount_in_with_lp_fees * self.get_psp22_balance()).checked_div((a0_reserve_before * 100u128) + amount_in_with_lp_fees) {
+                Some(result) => {
+                    amount_out = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
             return amount_out  
 
@@ -380,14 +590,43 @@ pub mod trading_pair_azero {
 
         ///function to get the amount of PSP22 the caller will get for given A0 amount (front-end use)
         #[ink(message,payable)]
-        pub fn get_est_price_a0_to_psp22(&self,ao_amount_to_transfer:Balance) -> Balance { 
+        pub fn get_est_price_a0_to_psp22(&self,a0_amout_in:Balance) -> Balance { 
 
-            let actual_fee:Balance = self.fee / 10u128.pow(12);
+            let actual_fee:Balance;
 
-            //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees:Balance = ao_amount_to_transfer * (100 - (actual_fee));
+            //calculating the actual LP fee
+            match self.fee.checked_div(10u128.pow(12)) {
+                Some(result) => {
+                    actual_fee = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
-            let amount_out:Balance = (amount_in_with_fees * self.get_psp22_balance()) / ((self.get_a0_balance() * 100) + amount_in_with_fees);
+            let amount_in_with_fees:Balance;
+
+            //reducting the LP fee from the A0 amount in
+            match a0_amout_in.checked_mul(100u128 - actual_fee){
+                Some(result) => {
+                    amount_in_with_fees = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            let amount_out:Balance;
+
+            //calculating the final PSP22 amount to transfer to the caller
+            match (amount_in_with_fees * self.get_psp22_balance()).checked_div((self.get_a0_balance() * 100u128) + amount_in_with_fees){
+                Some(result) => {
+                    amount_out = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
             
             return amount_out  
 
@@ -397,16 +636,46 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_price_impact_psp22_to_a0(&self,psp22_amount_in:Balance) -> Balance {
 
-            let actual_fee:Balance = self.fee / 10u128.pow(12);
+            let actual_fee:Balance;
 
-            let current_amount_out:Balance = self.get_est_price_psp22_to_a0(psp22_amount_in);
+            //calculating the actual LP fee
+            match self.fee.checked_div(10u128.pow(12)) {
+                Some(result) => {
+                    actual_fee = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            //fetching the amount of A0 the caller WOULD get if he would swap
+            let current_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_in);
+
+            let amount_in_with_fees:Balance;
+
+            //reducting the LP fee from the PSP22 amount in
+            match psp22_amount_in.checked_mul(100u128 - actual_fee) {
+                Some(result) => {
+                    amount_in_with_fees = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
     
-            //Reduct LP fee from the amount in
-            let amount_in_with_fees:Balance = psp22_amount_in * (100 - (actual_fee));
-    
-            let future_amount_out:Balance = (amount_in_with_fees * (self.get_a0_balance() - current_amount_out)) / (((self.get_psp22_balance() + psp22_amount_in) * 100) + amount_in_with_fees);
+            let future_ao_amount_out:Balance;
+
+            //calculating the final future A0 amount to transfer to the caller.
+            match (amount_in_with_fees * (self.get_a0_balance() - current_amount_out)).checked_div(((self.get_psp22_balance() + psp22_amount_in) * 100) + amount_in_with_fees) {
+                Some(result) => {
+                    future_ao_amount_out = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
             
-            future_amount_out
+            future_ao_amount_out
     
         }
         
@@ -414,40 +683,67 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_price_impact_a0_to_psp22(&mut self,a0_amount_in:Balance) -> Balance {
             
-            let actual_fee:Balance = self.fee / 10u128.pow(12);
+            let actual_fee:Balance;
 
-            let current_amount_out:Balance = self.get_est_price_a0_to_psp22(a0_amount_in);
+            //calculating the actual LP fee
+            match self.fee.checked_div(10u128.pow(12)) {
+                Some(result) => {
+                    actual_fee = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
-            //calc the amount_in with the current fees to transfer to the LP providers.
-            let amount_in_with_fees:Balance = a0_amount_in * (100 - (actual_fee));
+            let current_amount_out = self.get_est_price_a0_to_psp22(a0_amount_in);
 
-            let future_amount_out:Balance = (amount_in_with_fees * (self.get_psp22_balance() - current_amount_out)) / (((self.get_a0_balance() + a0_amount_in)* 100) + amount_in_with_fees);
+            let amount_in_with_fees:Balance;
 
-            future_amount_out
+            //reducting the LP fee from the A0 amount in
+            match a0_amount_in.checked_mul(100u128 - actual_fee) {
+                Some(result) => {
+                    amount_in_with_fees = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            let future_psp22_amount_out:Balance;
+
+            //calculating the final future PSP22 amount to transfer to the caller.
+            match (amount_in_with_fees * (self.get_psp22_balance() - current_amount_out)).checked_div(((self.get_a0_balance() + a0_amount_in)* 100) + amount_in_with_fees) {
+                Some(result) => {
+                    future_psp22_amount_out = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            future_psp22_amount_out
 
 
         }
 
         
-        ///function to swap PSP22 Tokens to A0
+        ///function to swap PSP22 to A0
         #[ink(message)]
         pub fn swap_psp22(&mut self,psp22_amount_to_transfer: Balance, a0_amount_to_validate: Balance,slippage: Balance) {
 
-            //fetching user current PSP22 balance
-            let user_current_balance:Balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
+            let caller_current_balance:Balance = PSP22Ref::balance_of(&self.psp22_token, self.env().caller());
 
-            //making sure user has more or equal to the amount he transfers.
-            if user_current_balance < psp22_amount_to_transfer {
+            //making sure that the caller has more or equal the amount he wishes to transfers.
+            if caller_current_balance < psp22_amount_to_transfer {
                 panic!(
                     "Caller balance is lower than the amount of PSP22 token he wishes to trasnfer,
                     kindly lower your deposited PSP22 tokens amount."
                 )
             }
             
-            //Fetching the contract allowance 
             let contract_allowance:Balance = PSP22Ref::allowance(&self.psp22_token, self.env().caller(),Self::env().account_id());
             
-            //making sure trading pair contract has enough allowance.
+            //making sure that the trading pair contract has enough allowance.
             if contract_allowance < psp22_amount_to_transfer {
                 panic!(
                     "Trading pair does not have enough allowance to transact,
@@ -458,25 +754,43 @@ pub mod trading_pair_azero {
             //the amount of A0 to give to the caller before traders fee.
             let a0_amount_out_for_caller_before_traders_fee:Balance = self.get_est_price_psp22_to_a0(psp22_amount_to_transfer);
 
-            //precentage dif between given A0 amount (from front-end) and acutal final AO amount
-            let precentage_diff:Balance = self.check_diffrenece(a0_amount_to_validate,a0_amount_out_for_caller_before_traders_fee);
+            //percentage dif between given A0 amount (from front-end) and acutal final AO amount
+            let percentage_diff:Balance = self.check_diffrenece(a0_amount_to_validate,a0_amount_out_for_caller_before_traders_fee);
 
-            //Validating slippage
-            if precentage_diff > slippage.try_into().unwrap() {
+            //validating slippage
+            if percentage_diff > slippage.try_into().unwrap() {
                 panic!(
                     "The percentage difference is bigger than the given slippage,
                     kindly re-adjust the slippage settings."
                 )
             }
 
-            //Calculating the final amount of a0 coins to give to the caller after reducing traders fee
-            let actual_a0_amount_out_for_caller:Balance = a0_amount_out_for_caller_before_traders_fee - (a0_amount_out_for_caller_before_traders_fee * self.traders_fee);
-            
-            //Calculating the amount to allocate to the vault account
-            let a0_amount_out_for_vault:Balance = a0_amount_out_for_caller_before_traders_fee - actual_a0_amount_out_for_caller;
+            let actual_a0_amount_out_for_caller:Balance;
+
+            //calculating the final amount of A0 coins to give to the caller after reducing traders fee
+            match  a0_amount_out_for_caller_before_traders_fee.checked_sub(a0_amount_out_for_caller_before_traders_fee * self.traders_fee) {
+                Some(result) => {
+                    actual_a0_amount_out_for_caller = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            let a0_amount_out_for_vault:Balance;
+
+            //calculating the amount of A0 coins to allocate to the vault account
+            match  a0_amount_out_for_caller_before_traders_fee.checked_sub(actual_a0_amount_out_for_caller) {
+                Some(result) => {
+                    a0_amount_out_for_vault = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
            //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
-           if PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_amount_to_transfer, ink_prelude::vec![]).call_flags(ink_env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
+           if PSP22Ref::transfer_from_builder(&self.psp22_token, self.env().caller(), Self::env().account_id(), psp22_amount_to_transfer, ink::prelude::vec![]).call_flags(ink::env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").is_err(){
             panic!(
                 "Error in PSP22 transferFrom cross contract call function, kindly re-adjust your deposited PSP22 tokens."
            )
@@ -507,32 +821,50 @@ pub mod trading_pair_azero {
         }
 
 
-        ///function to swap a0 and psp22
+        ///function to swap A0 to PSP22
         #[ink(message,payable)]
         pub fn swap_a0(&mut self,psp22_amount_to_validate: Balance,slippage: Balance) {
             
             //amount of PSP22 tokens to give to caller before traders fee.
             let psp22_amount_out_for_caller_before_traders_fee:Balance = self.get_est_price_a0_to_psp22_for_swap(self.env().transferred_value());
 
-            //precentage dif between given PSP22 amount (from front-end) and acutal final PSP22 amount
-            let precentage_diff:Balance = self.check_diffrenece(psp22_amount_to_validate,psp22_amount_out_for_caller_before_traders_fee);
+            //percentage dif between given PSP22 amount (from front-end) and the acutal final PSP22 amount.
+            let percentage_diff:Balance = self.check_diffrenece(psp22_amount_to_validate,psp22_amount_out_for_caller_before_traders_fee);
 
-            //Validating slippage
-            if precentage_diff > slippage.try_into().unwrap() {
+            //validating slippage
+            if percentage_diff > slippage.try_into().unwrap() {
                 panic!(
                     "The percentage difference is bigger than the given slippage,
                     kindly re-adjust the slippage settings."
                 )
             }
 
-            //Calculating the final amount of psp22 tokens to give to the caller after reducing traders fee
-            let actual_psp22_amount_out_for_caller:Balance = psp22_amount_out_for_caller_before_traders_fee - (psp22_amount_out_for_caller_before_traders_fee * self.traders_fee);
+            let actual_psp22_amount_out_for_caller:Balance;
 
-            //Calculating the amount to allocate to the vault account
-            let psp22_amount_out_for_vault:Balance = psp22_amount_out_for_caller_before_traders_fee - actual_psp22_amount_out_for_caller;
+            //calculating the final amount of PSP22 tokens to give to the caller after reducing traders fee
+            match psp22_amount_out_for_caller_before_traders_fee.checked_sub(psp22_amount_out_for_caller_before_traders_fee * self.traders_fee) {
+                Some(result) => {
+                    actual_psp22_amount_out_for_caller = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            let psp22_amount_out_for_vault:Balance;
+
+            //calculating the amount of PSP22 tokens to allocate to the vault account
+            match psp22_amount_out_for_caller_before_traders_fee.checked_sub(actual_psp22_amount_out_for_caller) {
+                Some(result) => {
+                    psp22_amount_out_for_vault = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
             //cross contract call to PSP22 contract to transfer PSP22 to the caller
-            PSP22Ref::transfer(&self.psp22_token, self.env().caller(), actual_psp22_amount_out_for_caller, ink_prelude::vec![]).unwrap_or_else(|error| {
+            PSP22Ref::transfer(&self.psp22_token, self.env().caller(), actual_psp22_amount_out_for_caller, ink::prelude::vec![]).unwrap_or_else(|error| {
                 panic!(
                     "Failed to transfer PSP22 tokens to caller : {:?}",
                     error
@@ -540,7 +872,7 @@ pub mod trading_pair_azero {
             });
 
             //cross contract call to PSP22 contract to transfer PSP22 to the vault
-            PSP22Ref::transfer(&self.psp22_token, self.vault, psp22_amount_out_for_vault, ink_prelude::vec![]).unwrap_or_else(|error| {
+            PSP22Ref::transfer(&self.psp22_token, self.vault, psp22_amount_out_for_vault, ink::prelude::vec![]).unwrap_or_else(|error| {
                 panic!(
                     "Failed to transfer PSP22 tokens to vault : {:?}",
                     error
@@ -555,6 +887,7 @@ pub mod trading_pair_azero {
         }
 
 
+        ///function used to transfer LP share tokens from caller to recipient.
         #[ink(message)]
         pub fn transfer_lp_tokens(&mut self, recipient:AccountId,shares_to_transfer: Balance) {
 
@@ -570,13 +903,38 @@ pub mod trading_pair_azero {
                 )
             }
 
-            self.balances.insert(caller, &(caller_shares - shares_to_transfer));
+            let new_caller_lp_balance:Balance;
+
+            //calculating caller total LP share tokens amount after transfer
+            match caller_shares.checked_sub(shares_to_transfer) {
+                Some(result) => {
+                    new_caller_lp_balance = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            let new_recipient_lp_balance:Balance;
+
+            //calculating caller total LP share tokens amount after transfer
+            match recipient_shares.checked_add(shares_to_transfer) {
+                Some(result) => {
+                    new_recipient_lp_balance = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            self.balances.insert(caller, &(new_caller_lp_balance));
  
-            self.balances.insert(recipient, &(recipient_shares + shares_to_transfer));
+            self.balances.insert(recipient, &(new_recipient_lp_balance));
 
 
         }
 
+        ///function used to approve the amount of LP token shares for the spender to spend from owner.
         #[ink(message)]
         pub fn approve_lp_tokens(&mut self, spender:AccountId,shares_to_approve: Balance)  {
 
@@ -590,19 +948,26 @@ pub mod trading_pair_azero {
             )
            }
 
+           if shares_to_approve >= u128::MAX {
+            panic!(
+                "overflow!"
+            )
+           }
+
+
            self.lp_tokens_allowances.insert((caller,spender), &(shares_to_approve));
 
-            
-         
         }
 
+        //function to transfer LP share tokens FROM owner TO receipent
         #[ink(message)]
-        pub fn transfer_lp_tokens_from_to(&mut self,owner:AccountId,spender:AccountId,shares_to_transfer: Balance)  {
+        pub fn transfer_lp_tokens_from_to(&mut self,owner:AccountId,to:AccountId,shares_to_transfer: Balance)  {
 
+           let spender = self.env().caller();
 
            let owner_shares:Balance = self.balances.get(&owner).unwrap_or(0);
 
-           let spender_shares:Balance = self.balances.get(&spender).unwrap_or(0);
+           let to_shares:Balance = self.balances.get(&to).unwrap_or(0);
 
            let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
 
@@ -618,15 +983,52 @@ pub mod trading_pair_azero {
             )
            }
 
-           self.balances.insert(owner, &(owner_shares - shares_to_transfer));
+           let new_owner_lp_balance:Balance;
 
-           self.lp_tokens_allowances.insert((owner,spender), &(allowance - shares_to_transfer));
+           //calculating caller total LP share tokens amount after transfer
+           match owner_shares.checked_sub(shares_to_transfer) {
+               Some(result) => {
+                   new_owner_lp_balance = result;
+               }
+               None => {
+                   panic!("overflow!");
+               }
+           };
 
-           self.balances.insert(spender, &(spender_shares + shares_to_transfer));
+           let new_to_lp_balance:Balance;
+
+           //calculating caller total LP share tokens amount after transfer
+           match to_shares.checked_add(shares_to_transfer) {
+               Some(result) => {
+                new_to_lp_balance = result;
+               }
+               None => {
+                   panic!("overflow!");
+               }
+           };
+
+           let new_allowance:Balance;
+
+           //calculating spender new allowance amount
+           match allowance.checked_sub(shares_to_transfer) {
+                Some(result) => {
+                    new_allowance = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+           self.balances.insert(owner, &(new_owner_lp_balance));
+
+           self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
+
+           self.balances.insert(to, &(new_to_lp_balance));
     
          
         }
          
+        //function to get the allowance of spender from the owner
         pub fn get_lp_tokens_allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
             self.lp_tokens_allowances.get(&(owner,spender)).unwrap_or(0)
         }
@@ -640,10 +1042,7 @@ pub mod trading_pair_azero {
         ///funtion to fetch current price for one PSP22
         #[ink(message)]
         pub fn get_current_price(&self) -> Balance {
-
-            let one_token:Balance = 1 * 10u128.pow(12);
-        
-            self.get_est_price_psp22_to_a0(one_token)    
+            self.get_est_price_psp22_to_a0(1u128 * 10u128.pow(12))    
         }
 
         ///function to get total supply of LP shares
@@ -686,16 +1085,28 @@ pub mod trading_pair_azero {
 
         }
         
+        ///function to calculate the percentage between values.
         #[ink(message,payable)]
         pub fn check_diffrenece(&mut self,value1: Balance,value2: Balance) -> Balance {
 
-            let absolute_difference:Balance = value1.abs_diff(value2);
+            let absolute_difference = value1.abs_diff(value2);
 
-            let absolute_difference_nominated:Balance = absolute_difference * 10u128.pow(12);
 
-            let percentage_difference:Balance = 100 * (absolute_difference_nominated / ((value1+value2) / 2));
+            let absolute_difference_nominated = absolute_difference * (10u128.pow(12));
 
-            percentage_difference 
+
+            let percentage_difference:Balance;
+
+            match 100u128.checked_mul(absolute_difference_nominated / ((value1+value2) / 2)) {
+                Some(result) => {
+                    percentage_difference = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+            percentage_difference
 
       
             

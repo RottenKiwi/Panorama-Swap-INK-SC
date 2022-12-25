@@ -1,25 +1,18 @@
 [package]
 name = "pair_creator"
-version = "0.9.0"
+version = "0.9.6"
 authors = ["Yonatan Hornstein <yonatan@panoramaswap.com>"]
 edition = "2021"
 overflow-checks = false
 
 [dependencies]
-# Import of all ink! crates
-ink_primitives = { version = "~3.3.0", default-features = false }
-ink_metadata = { version = "~3.3.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "~3.3.0", default-features = false }
-ink_storage = { version = "~3.3.0", default-features = false }
-ink_lang = { version = "~3.3.0", default-features = false }
-ink_prelude = { version = "~3.3.0", default-features = false }
-ink_engine = { version = "~3.3.0", default-features = false, optional = true }
-
+ink = { git = "https://github.com/paritytech/ink", commit = "4655a8b4413cb50cbc38d1b7c173ad426ab06cde", default-features = false}
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", branch = "feature/update-to-ink-4.0.0-beta", default-features= false, features = ["psp22"] }
+trading_pair_psp22 = { path = "../trading_pair_psp22",version="0.9.6",default-features = false, features = ["ink-as-dependency"] }
+trading_pair_azero = { path = "../trading_pair_azero",version="0.9.6",default-features = false, features = ["ink-as-dependency"] }
 
-trading_pair_azero = { path = "../trading_pair_azero",version="0.9.1",default-features = false, features = ["ink-as-dependency"] }
-trading_pair_psp22 = { path = "../trading_pair_psp22",version="0.9.1",default-features = false, features = ["ink-as-dependency"] }
 
 
 
@@ -38,21 +31,19 @@ overflow-checks = false
 [features]
 default = ["std"]
 std = [
-  "ink_primitives/std",
-  "ink_metadata",
-  "ink_metadata/std",
-  "ink_env/std",
-  "ink_storage/std",
-  "ink_lang/std",
-  "scale/std",
-  "scale-info",
-  "scale-info/std",
-
-
-  "trading_pair_azero/std",
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "openbrush/std",
+    "trading_pair_azero/std",
     "trading_pair_psp22/std"
 ]
+psp22 = ["openbrush/psp22"]
+ink-as-dependency = []
+
 [workspace]
 memebers =[
     "trading_pair_azero",
+    "trading_pair_psp22"
 ]
+

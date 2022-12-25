@@ -1,21 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use ink_lang as ink;
-
-
 
 #[ink::contract]
 pub mod pair_creator {
 
-
-    use trading_pair_azero::TradingPairAzeroRef;
     use trading_pair_psp22::TradingPairPsp22Ref;
-    use ink_storage::traits::SpreadAllocate;
-    
-    
-    
+    use trading_pair_azero::TradingPairAzeroRef;
+
+
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
     pub struct PairCreator {
     
 
@@ -26,9 +19,9 @@ pub mod pair_creator {
         #[ink(constructor)]
         pub fn new() -> Self {
             
-            let me = ink_lang::utils::initialize_contract(|_contract: &mut Self| {});
-            
-            me
+            Self{
+
+            }
             
         }
 

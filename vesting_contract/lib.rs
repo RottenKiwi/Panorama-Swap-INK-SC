@@ -1,7 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use ink_lang as ink;
-
 #[cfg(not(feature = "ink-as-dependency"))]
 
 
@@ -9,7 +6,6 @@ use ink_lang as ink;
 #[ink::contract]
 pub mod vesting_contract {
 
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::{
         contracts::{
 
@@ -17,12 +13,9 @@ pub mod vesting_contract {
         },
     };
 
-   
-
-    
+    use ink::storage::Mapping; 
     
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
     pub struct VestingContract {
         
         //Deployer address 
@@ -30,15 +23,15 @@ pub mod vesting_contract {
         //PANX psp22 contract address
         panx_psp22: AccountId,
         //Vesting contract deploy date in tsp 
-        started_date_in_timestamp:u64,
-        //Locked PANX amount for users
-        balances: ink_storage::Mapping<AccountId, Balance>,
+        started_date_in_timestamp:Balance,
+        //Locked PANX amount of users
+        balances: Mapping<AccountId, Balance>,
         // 0 didnt collect, 1 did collect.
-        collected_tge: ink_storage::Mapping<AccountId, i64>,
-        //panx reward for a day, for each account
-        panx_to_give_in_a_day: ink_storage::Mapping<AccountId, Balance>,
-        //last time account redeemed
-        last_redeemed:ink_storage::Mapping<AccountId, u64>,
+        collected_tge: Mapping<AccountId, Balance>,
+        //Panx reward for a day, for each account
+        panx_to_give_in_a_day:Mapping<AccountId, Balance>,
+        //Last date of caller redeem
+        last_redeemed:Mapping<AccountId, Balance>,
 
 
     }
@@ -48,15 +41,29 @@ pub mod vesting_contract {
         #[ink(constructor)]
         pub fn new(panx_contract:AccountId) -> Self {
             
-            let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
-                contract.panx_psp22 = panx_contract;  
-                
-                contract.started_date_in_timestamp = contract.get_current_timestamp();
-                contract.manager = Self::env().caller();
-               
-            });
+
+                let panx_psp22 = panx_contract;  
+                let started_date_in_timestamp:Balance = Self::env().block_timestamp();
+                let manager = Self::env().caller();
+                let balances = Mapping::default();
+                let collected_tge = Mapping::default();
+                let panx_to_give_in_a_day = Mapping::default();
+                let last_redeemed =  Mapping::default();
+
             
-            me
+            
+
+            Self{
+
+                manager,
+                panx_psp22,
+                started_date_in_timestamp,
+                balances,
+                collected_tge,
+                panx_to_give_in_a_day,
+                last_redeemed
+
+            }
             
         }
 
@@ -66,20 +73,43 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn add_to_vesting(&mut self,account:AccountId,panx_to_give_overall:Balance)  {
 
-           //Making sure caller is the manager (Only manager can add)
+           //Making sure caller is the manager (Only manager can add to the vesting program)
            if self.env().caller() != self.manager {
            panic!(
                 "The caller is not the manager, cannot add account to vesting program."
            )
            }
-           //get current account balance (If any)
+
            let account_balance = self.balances.get(&account).unwrap_or(0);
-           //add PANX allocation to account
-           self.balances.insert(account, &(account_balance + panx_to_give_overall));
-           //calc how many tokens to give in a day
-           let amount_to_give_each_day = panx_to_give_overall / 365  ;
-           //insert the daily amount to account
-           self.panx_to_give_in_a_day.insert(account,&amount_to_give_each_day);
+
+           let new_vesting_panx_amount:Balance;
+
+           //calculating the new vesting amount of the caller.
+           match account_balance.checked_add(panx_to_give_overall) {
+            Some(result) => {
+                new_vesting_panx_amount = result;
+            }
+            None => {
+                panic!("overflow!");
+            }
+            };
+
+
+           self.balances.insert(account, &(new_vesting_panx_amount));
+
+           let panx_amount_to_give_each_day:Balance;
+
+           //calculating how much PANX tokens the caller needs to get each day.
+           match new_vesting_panx_amount.checked_div(365) {
+            Some(result) => {
+                panx_amount_to_give_each_day = result;
+            }
+            None => {
+                panic!("overflow!");
+            }
+            };
+
+           self.panx_to_give_in_a_day.insert(account,&panx_amount_to_give_each_day);
            //Allow account to collect TGE
            self.collected_tge.insert(account,&0);
            //Insert the current date as last redeem date for account.
@@ -88,119 +118,167 @@ pub mod vesting_contract {
         }
 
 
-        ///function to collect TGE (10%) for account
+        ///function to collect TGE (10%) for caller
         #[ink(message)]
         pub fn collect_tge_tokens(&mut self)  {
 
-           //caller address
-           let account = self.env().caller();
-           //current account locked tokens
-           let account_balance:Balance = self.balances.get(&account).unwrap_or(0);
-           //making sure account didnt redeem tge yet
-           if self.collected_tge.get(&account).unwrap_or(0) != 0 {
+           let caller = self.env().caller();
+
+           let caller_current_balance:Balance = self.balances.get(&caller).unwrap_or(0);
+
+           //making sure caller didnt redeem tge yet
+           if self.collected_tge.get(&caller).unwrap_or(0) != 0 {
             panic!(
                  "The caller already redeemed his TGE alloction, cannot redeem again."
             )
             }
-           //making sure account has more then 0 tokens
-           if account_balance <= 0 {
+           //making sure caller has more then 0 tokens
+           if caller_current_balance <= 0 {
             panic!(
                  "Caller has balance of 0 locked tokens."
             )
             }
 
-           //account balance without TGE token amounts
-           let account_balance_with_tge_amount =  (account_balance * 900) / 1000;
+           let caller_locked_panx_after_tge:Balance;
 
-           //calc the amount of TGE tokens to give 
-           let amount_to_give = account_balance - account_balance_with_tge_amount;
+           //calculating how callers balance after reducing tge amount (10%)
+           match (caller_current_balance * 900).checked_div(1000) {
+            Some(result) => {
+                caller_locked_panx_after_tge = result;
+            }
+            None => {
+                panic!("overflow!");
+            }
+            };
+
+           let amount_of_panx_to_give:Balance;
+
+           //calculating the amount of PANX to give to the caller
+           match caller_current_balance.checked_sub(caller_locked_panx_after_tge) {
+            Some(result) => {
+                amount_of_panx_to_give = result;
+            }
+            None => {
+                panic!("overflow!");
+            }
+            };
 
            //transfers the TGE tokens to caller
-           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_to_give, ink_prelude::vec![]).unwrap_or_else(|error| {
+           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_of_panx_to_give, ink::prelude::vec![]).unwrap_or_else(|error| {
             panic!(
                 "Failed to transfer PSP22 tokens to caller : {:?}",
                 error
             )
             });
            //deducts from overall vesting amount to give
-           self.balances.insert(account, &(account_balance - amount_to_give));
+           self.balances.insert(caller, &(caller_current_balance - amount_of_panx_to_give));
 
            //make sure to change his collected tge status to 1 to prevent the user to call it again
-           self.collected_tge.insert(account,&1);
+           self.collected_tge.insert(caller,&1);
 
 
 
         }
 
-        ///function to get account redeemable amount of tokens
+        ///function to get caller redeemable amount of tokens
         #[ink(message)]
         pub fn get_redeemable_amount(&mut self) -> Balance {
 
             
-            //call address 
-            let account = self.env().caller();
-            //current timestamp
-            let current_tsp = self.get_current_timestamp();
-            //account total locked PANX amount
-            let account_total_vesting_amount:Balance = self.get_account_total_vesting_amount(account);
+            let caller = self.env().caller();
 
-        
-            //last time account (caller) redeemed tokens
-            let last_redeemed = self.last_redeemed.get(account).unwrap_or(0);
-            //How many PANX tokens to give to account each day
-            let panx_to_give_each_day:Balance = self.panx_to_give_in_a_day.get(account).unwrap_or(0);
-            //days since last redeem
-            let days_diff = (current_tsp - last_redeemed) / 86400;
+            let current_date_in_tsp = self.get_current_timestamp();
+
+            let caller_total_vesting_amount:Balance = self.get_account_total_vesting_amount(caller);
+
+            let date_of_last_redeem_in_tsp:Balance = self.last_redeemed.get(caller).unwrap_or(0);
+
+            let panx_to_give_each_day:Balance = self.panx_to_give_in_a_day.get(caller).unwrap_or(0);
+
+            let days_difference:Balance;
+
+            //calculating the days difference between the last redeem date and current date
+            match (current_date_in_tsp - date_of_last_redeem_in_tsp).checked_div(86400) {
+                Some(result) => {
+                    days_difference = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
             //making sure that 24 hours has passed since last redeem
-            if days_diff <= 0 {
+            if days_difference <= 0 {
                 panic!(
                      "0 Days passed since the last redeem, kindly wait 24 hours after redeem."
                 )
                 }
-            //making sure that account has more then 0 PANX to redeem
-            if account_total_vesting_amount <= 0 {
+            //making sure that caller has more then 0 PANX to redeem
+            if caller_total_vesting_amount <= 0 {
                 panic!(
                      "Caller has balance of 0 locked tokens. "
                 )
                 }
-            //amount to give to caller
-            let mut amount_redeemable_amount = panx_to_give_each_day * days_diff as u128;
 
 
-            //if account has less tokens from the daily amount, give him the rest of tokens
-            if amount_redeemable_amount > account_total_vesting_amount{
+            let mut redeemable_amount:Balance;
 
-                amount_redeemable_amount = account_total_vesting_amount
+            //calculating the amount of PANX the caller needs to get.
+            match panx_to_give_each_day.checked_mul(days_difference) {
+                Some(result) => {
+                    redeemable_amount = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+
+            //if caller has less tokens from the daily amount, give him the rest of tokens
+            if redeemable_amount > caller_total_vesting_amount{
+
+                redeemable_amount = caller_total_vesting_amount
             }
 
-            amount_redeemable_amount
+            redeemable_amount
 
             
 
         }
 
-        ///function for account to redeem his redeemable tokens.
+        ///function for caller to redeem his redeemable tokens.
         #[ink(message)]
         pub fn redeem_redeemable_amount(&mut self) {
 
             
-            //caller address
-            let account = self.env().caller();
-            //current timestamp
-            let current_tsp = self.get_current_timestamp();
-            //caller total locked PANX 
-            let account_total_vesting_amount = self.get_account_total_vesting_amount(account);
+            let caller = self.env().caller();
+
+            let current_date_in_tsp = self.get_current_timestamp();
+
+            let caller_total_vesting_amount = self.get_account_total_vesting_amount(caller);
 
             let mut redeemable_amount = self.get_redeemable_amount();
 
-            //Making sure to set his last redeem to current timestamp
-            self.last_redeemed.insert(account,&current_tsp);
+            //make sure to set new date of reedem for the caller.
+            self.last_redeemed.insert(caller,&current_date_in_tsp);
+
+            let caller_new_vesting_amount:Balance;
+
+            //calculating the callers new total vesting amount
+            match caller_total_vesting_amount.checked_sub(redeemable_amount) {
+                Some(result) => {
+                    caller_new_vesting_amount = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
             //make sure to deducte from overall amount
-            self.balances.insert(account, &(account_total_vesting_amount -  redeemable_amount));
+            self.balances.insert(caller, &(caller_new_vesting_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
-            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), redeemable_amount, ink_prelude::vec![]).unwrap_or_else(|error| {
+            PSP22Ref::transfer(&self.panx_psp22, caller, redeemable_amount, ink::prelude::vec![]).unwrap_or_else(|error| {
                 panic!(
                     "Failed to transfer PSP22 tokens to caller : {:?}",
                     error
@@ -210,7 +288,7 @@ pub mod vesting_contract {
         }
 
 
-        ///function to get account total locked tokens
+        ///function to get caller total locked tokens
         #[ink(message)]
         pub fn get_account_total_vesting_amount(&mut self,account:AccountId)-> Balance  {
         
@@ -218,9 +296,9 @@ pub mod vesting_contract {
            account_balance
 
         }
-        ///funtion to get account last redeem in timestamp
+        ///funtion to get caller last redeem in timestamp
         #[ink(message)]
-        pub fn get_account_last_redeem(&mut self,account:AccountId)->u64  {
+        pub fn get_account_last_redeem(&mut self,account:AccountId)->Balance  {
         
            let time_stamp = self.last_redeemed.get(&account).unwrap_or(0);
            time_stamp
@@ -245,7 +323,7 @@ pub mod vesting_contract {
         }
         ///function to get account TGE collection status
         #[ink(message)]
-        pub fn user_tge_collection_status(&mut self,account:AccountId)->i64  {
+        pub fn user_tge_collection_status(&mut self,account:AccountId)->Balance  {
 
             let tge_status = self.collected_tge.get(account).unwrap_or(0);
             tge_status
@@ -254,7 +332,7 @@ pub mod vesting_contract {
         }
         ///funtion to get the started date since issuing the vesting contract in timpstamp and str
         #[ink(message)]
-        pub fn get_started_date(&self) -> u64 {
+        pub fn get_started_date(&self) -> Balance {
             let timestamp = self.started_date_in_timestamp;
             timestamp
         }
@@ -262,7 +340,7 @@ pub mod vesting_contract {
         
         ///function to get current timpstamp in seconds
         #[ink(message)]
-        pub fn get_current_timestamp(&self) -> u64 {
+        pub fn get_current_timestamp(&self) -> Balance {
             let bts = self.env().block_timestamp() / 1000;
             bts
         }
@@ -271,7 +349,7 @@ pub mod vesting_contract {
 
         //get the days pass since deployment
         #[ink(message)]
-        pub fn get_days_passed_since_issue(&self) -> u64 {
+        pub fn get_days_passed_since_issue(&self) -> Balance {
             let current_tsp = self.env().block_timestamp() / 1000;
 
             let days_diff = (current_tsp - self.started_date_in_timestamp) / 86400;

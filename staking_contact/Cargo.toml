@@ -1,23 +1,18 @@
 [package]
 name = "stacking_contract"
-version = "0.8.0"
+version = "0.9.6"
 authors = ["Yonatan Hornstein <yonatan@panoramaswap.com>"]
 edition = "2021"
 overflow-checks = false
 
 [dependencies]
-# Import of all ink! crates
-ink_primitives = { version = "~3.3.0", default-features = false }
-ink_metadata = { version = "~3.3.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "~3.3.0", default-features = false }
-ink_storage = { version = "~3.3.0", default-features = false }
-ink_lang = { version = "~3.3.0", default-features = false }
-ink_prelude = { version = "~3.3.0", default-features = false }
-ink_engine = { version = "~3.3.0", default-features = false, optional = true }
-
+[dependencies]
+ink = { git = "https://github.com/paritytech/ink", commit = "4655a8b4413cb50cbc38d1b7c173ad426ab06cde", default-features = false}
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
-openbrush = { version = "~2.2.0", default-features = false, features = ["psp22"] }
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", branch = "feature/update-to-ink-4.0.0-beta", default-features= false, features = ["psp22"] }
+
+
 
 
 
@@ -36,17 +31,10 @@ overflow-checks = false
 [features]
 default = ["std"]
 std = [
-  "ink_primitives/std",
-  "ink_metadata",
-  "ink_metadata/std",
-  "ink_env/std",
-  "ink_storage/std",
-  "ink_lang/std",
-  "scale/std",
-  "scale-info",
-  "scale-info/std",
-
-  # Brush dependency
-  "openbrush/std",
-
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "openbrush/std",
 ]
+psp22 = ["openbrush/psp22"]
+ink-as-dependency = []

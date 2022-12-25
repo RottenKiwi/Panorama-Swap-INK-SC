@@ -1,7 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use ink_lang as ink;
-
 #[cfg(not(feature = "ink-as-dependency"))]
 
 
@@ -9,7 +6,7 @@ use ink_lang as ink;
 #[ink::contract]
 pub mod airdrop_contract {
 
-    use ink_storage::traits::SpreadAllocate;
+
     use openbrush::{
         contracts::{
 
@@ -17,8 +14,9 @@ pub mod airdrop_contract {
         },
     };
 
+    use ink::storage::Mapping;
+
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
     pub struct AirdropContract {
         
         //Deployer address 
@@ -26,25 +24,29 @@ pub mod airdrop_contract {
         //PANX psp22 contract address
         panx_psp22: AccountId,
         // 0 didnt collect, 1 did collect.
-        collected_airdrop: ink_storage::Mapping<AccountId, i64>,
+        collected_airdrop: Mapping<AccountId, i64>,
 
 
     }
 
     impl AirdropContract {
-        /// Creates a new instance of this contract.
+        /// Creates a new airdrop contract.
         #[ink(constructor)]
         pub fn new(panx_contract:AccountId) -> Self {
             
-            let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
-
-                contract.panx_psp22 = panx_contract;  
+            let panx_psp22 = panx_contract;  
                 
-                contract.manager = Self::env().caller();
-               
-            });
+            let manager = Self::env().caller();
             
-            me
+            let collected_airdrop = Mapping::default();
+            
+            Self{
+
+                manager,
+                panx_psp22,
+                collected_airdrop
+
+            }
             
         }
 
@@ -59,15 +61,25 @@ pub mod airdrop_contract {
             )
             }
 
-            let tokens_to_transfer:Balance = 50 *10u128.pow(12);
+            let tokens_to_transfer:Balance;
+
+            match 50u128.checked_mul(10u128.pow(12)) {
+                Some(result) => {
+                    tokens_to_transfer = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
            //transfers the airdrop tokens to caller
-           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink_prelude::vec![]).unwrap_or_else(|error| {
+           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer,ink::prelude:vec![]).unwrap_or_else(|error| {
             panic!(
                 "Failed to transfer PSP22 tokens to caller : {:?}",
                 error
             )
             });
+
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
         
@@ -84,7 +96,16 @@ pub mod airdrop_contract {
             )
             }
 
-            let tokens_to_transfer:Balance = 500 *10u128.pow(12);
+            let tokens_to_transfer:Balance;
+
+            match 500.checked_mul(10u128.pow(12)) {
+                Some(result) => {
+                    tokens_to_transfer = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
            //transfers the airdrop tokens to caller
             PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink_prelude::vec![]).unwrap_or_else(|error| {
