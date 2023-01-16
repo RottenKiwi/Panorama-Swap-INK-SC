@@ -29,15 +29,24 @@ pub mod airdrop_contract {
 
     }
 
+    #[ink(event)]
+    pub struct 50PanxClaim {
+        caller:AccountId
+    }
+
+    #[ink(event)]
+    pub struct 500PanxClaim {
+        caller:AccountId
+    }
+
+
     impl AirdropContract {
         /// Creates a new airdrop contract.
         #[ink(constructor)]
         pub fn new(panx_contract:AccountId) -> Self {
             
             let panx_psp22 = panx_contract;  
-                
-            let manager = Self::env().caller();
-            
+                let manager = Self::env().caller();
             let collected_airdrop = Mapping::default();
             
             Self{
@@ -82,6 +91,8 @@ pub mod airdrop_contract {
 
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
+           Self::env().emit_event(50PanxClaim{caller:self.env().caller()});
+
         
         }
 
@@ -116,6 +127,7 @@ pub mod airdrop_contract {
             });
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
+           Self::env().emit_event(500PanxClaim{caller:self.env().caller()});
 
         }
 

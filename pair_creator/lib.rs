@@ -4,6 +4,7 @@
 #[ink::contract]
 pub mod pair_creator {
 
+
     use trading_pair_psp22::TradingPairPsp22Ref;
     use trading_pair_azero::TradingPairAzeroRef;
 
@@ -12,6 +13,21 @@ pub mod pair_creator {
     pub struct PairCreator {
     
 
+    }
+
+    #[ink(event)]
+    pub struct NewTPA {
+        caller:AccountId,
+        psp22_address:AccountId,
+        lp_fee: Balance,
+    }
+
+    #[ink(event)]
+    pub struct NewTPP {
+        caller:AccountId,
+        psp22_1_address:AccountId,
+        psp22_2_address:AccountId,
+        lp_fee: Balance,
     }
 
     impl PairCreator {
@@ -42,9 +58,6 @@ pub mod pair_creator {
                     )
             });
             let add = trading_pair.get_account_id();
-
-            
-
             add
         
  
@@ -67,9 +80,6 @@ pub mod pair_creator {
                     )
             });
             let add = trading_pair.get_account_id();
-
-            
-
             add
         
  

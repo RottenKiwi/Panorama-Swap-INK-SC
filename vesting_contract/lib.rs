@@ -12,7 +12,6 @@ pub mod vesting_contract {
             traits::psp22::PSP22Ref,
         },
     };
-
     use ink::storage::Mapping; 
     
     #[ink(storage)]
@@ -36,6 +35,27 @@ pub mod vesting_contract {
 
     }
 
+    #[ink(event)]
+    pub struct AddToVestingProgram {
+        added_account:AccountId,
+        total_vesting_amount:Balance,
+        panx_amount_to_give_each_day: Balance,
+    }
+
+    #[ink(event)]
+    pub struct CollectedTGE {
+        caller:AccountId,
+        panx_given_amount:Balance,
+        caller_new_balance:Balance
+    }
+
+    #[ink(event)]
+    pub struct Redeem {
+        caller:AccountId,
+        panx_given_amount:Balance,
+        caller_new_balance:Balance
+    }
+
     impl VestingContract {
         /// Creates a new instance of this contract.
         #[ink(constructor)]
@@ -43,7 +63,7 @@ pub mod vesting_contract {
             
 
                 let panx_psp22 = panx_contract;  
-                let started_date_in_timestamp:Balance = Self::env().block_timestamp();
+                let started_date_in_timestamp:Balance = Self::env().block_timestamp().into();
                 let manager = Self::env().caller();
                 let balances = Mapping::default();
                 let collected_tge = Mapping::default();
@@ -114,6 +134,9 @@ pub mod vesting_contract {
            self.collected_tge.insert(account,&0);
            //Insert the current date as last redeem date for account.
            self.last_redeemed.insert(account, &self.get_current_timestamp());
+
+           Self::env().emit_event(AddToVestingProgram{added_account:self.env().caller(),total_vesting_amount:panx_to_give_overall,panx_amount_to_give_each_day:panx_amount_to_give_each_day});
+
               
         }
 
@@ -175,6 +198,9 @@ pub mod vesting_contract {
 
            //make sure to change his collected tge status to 1 to prevent the user to call it again
            self.collected_tge.insert(caller,&1);
+
+           Self::env().emit_event(CollectedTGE{caller:caller,panx_given_amount:amount_of_panx_to_give,caller_new_balance:caller_current_balance - amount_of_panx_to_give});
+
 
 
 
@@ -285,6 +311,9 @@ pub mod vesting_contract {
                 )
             });
 
+            Self::env().emit_event(Redeem{caller:caller,panx_given_amount:redeemable_amount,caller_new_balance:caller_total_vesting_amount - redeemable_amount});
+
+
         }
 
 
@@ -342,7 +371,7 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_current_timestamp(&self) -> Balance {
             let bts = self.env().block_timestamp() / 1000;
-            bts
+            bts.into()
         }
 
         
@@ -350,9 +379,18 @@ pub mod vesting_contract {
         //get the days pass since deployment
         #[ink(message)]
         pub fn get_days_passed_since_issue(&self) -> Balance {
-            let current_tsp = self.env().block_timestamp() / 1000;
+            let current_tsp:Balance = (self.env().block_timestamp() / 1000).into();
 
-            let days_diff = (current_tsp - self.started_date_in_timestamp) / 86400;
+            let days_diff :Balance;
+
+            match  (current_tsp - self.started_date_in_timestamp).checked_div(86400) {
+                Some(result) => {
+                    days_diff = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
             days_diff
         }

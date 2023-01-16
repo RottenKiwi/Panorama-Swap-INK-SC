@@ -11,19 +11,21 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", branch = "feature/update-to-ink-4.0.0-beta", default-features= false, features = ["psp22"] }
 
-
 [lib]
 name = "airdrop_contract"
 path = "lib.rs"
 crate-type = [
-    # Used for normal contract Wasm blobs.
     "cdylib",
-    "rlib"
+    # Used for ABI. Required for contracts to be included in other contracts.
+    "rlib",
 ]
+[profile.release]
+overflow-checks = false
 
 [features]
 default = ["std"]
 std = [
+
     "ink/std",
     "scale/std",
     "scale-info/std",
@@ -31,6 +33,3 @@ std = [
 ]
 psp22 = ["openbrush/psp22"]
 ink-as-dependency = []
-
-
-

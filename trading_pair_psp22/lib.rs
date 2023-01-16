@@ -18,6 +18,8 @@ pub mod trading_pair_psp22 {
     };
 
     use ink::storage::Mapping;
+
+
         
     
     #[ink(storage)]
@@ -44,6 +46,37 @@ pub mod trading_pair_psp22 {
         //Trader's fee
         traders_fee:Balance
     }
+
+    #[ink(event)]
+    pub struct LiquidityPoolProvision {
+        from:AccountId,
+        psp22_1_deposited_amount:Balance,
+        psp22_2_deposited_amount: Balance,
+        shares_given:Balance
+    }
+
+    #[ink(event)]
+    pub struct LiquidityPoolWithdrawal {
+        caller:AccountId,
+        shares_given:Balance,
+        psp22_1_given_amount:Balance,
+        psp22_2_given_amount: Balance,
+        new_shares_balance:Balance
+    }
+    #[ink(event)]
+    pub struct PSP22Token1Swap {
+        caller:AccountId,
+        psp22_1_deposited_amount:Balance,
+        psp22_2_given_amount: Balance,
+    }
+    #[ink(event)]
+    pub struct PSP22Token2Swap {
+        caller:AccountId,
+        psp22_2_deposited_amount:Balance,
+        psp22_1_given_amount: Balance,
+    }
+
+
 
 
     impl TradingPairPsp22 {
@@ -262,6 +295,7 @@ pub mod trading_pair_psp22 {
            self.balances.insert(self.env().caller(), &(new_caller_shares));
            //adding to over LP tokens (mint)
            self.total_supply += shares;
+           Self::env().emit_event(LiquidityPoolProvision{from:self.env().caller(),psp22_1_deposited_amount:actual_psp22_1_deposit_amount,psp22_2_deposited_amount:actual_psp22_2_deposit_amount,shares_given:shares})
 
 
 
@@ -289,6 +323,18 @@ pub mod trading_pair_psp22 {
            let psp22_token1_amount_to_give = self.get_psp22_token1_withdraw_tokens_amount(shares);
            //Amount of psp22 token1 to give to the caller
            let psp22_token2_amount_to_give = self.get_psp22_token2_withdraw_tokens_amount(shares);
+
+           let new_caller_lp_shares:Balance;
+
+           //calculating the current caller shares with the new provided shares.
+           match caller_shares.checked_sub(shares) {
+            Some(result) => {
+                new_caller_lp_shares = result;
+            }
+            None => {
+                panic!("overflow!");
+            }
+            };
            
            //cross contract call to PSP22 token1 contract to transfer PSP22 token1 to the caller
            PSP22Ref::transfer(&self.psp22_token1_address, caller, psp22_token1_amount_to_give, ink::prelude::vec![]).unwrap_or_else(|error| {
@@ -310,6 +356,8 @@ pub mod trading_pair_psp22 {
            self.balances.insert(caller, &(caller_shares - shares));
            //reducing over LP token supply (burn)
            self.total_supply -= shares;
+           Self::env().emit_event(LiquidityPoolWithdrawal{caller:caller,shares_given:shares,psp22_1_given_amount:psp22_token1_amount_to_give,psp22_2_given_amount:psp22_token2_amount_to_give,new_shares_balance:new_caller_lp_shares});
+
 
 
 
@@ -844,6 +892,7 @@ pub mod trading_pair_psp22 {
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
+            Self::env().emit_event(PSP22Token1Swap{caller:self.env().caller(),psp22_1_deposited_amount:psp22_token1_amount_to_swap,psp22_2_given_amount:actual_psp22_token2_amount_out_for_caller});
 
         }
 
@@ -936,6 +985,8 @@ pub mod trading_pair_psp22 {
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
+            Self::env().emit_event(PSP22Token2Swap{caller:self.env().caller(),psp22_2_deposited_amount:psp22_token2_amount_to_swap,psp22_1_given_amount:actual_psp22_token1_amount_out_for_caller});
+
             
         }
         

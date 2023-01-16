@@ -1,7 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use ink_lang as ink;
-
 #[cfg(not(feature = "ink-as-dependency"))]
 
 
@@ -9,21 +6,18 @@ use ink_lang as ink;
 #[ink::contract]
 pub mod staking_contract {
 
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::{
         contracts::{
-
             traits::psp22::PSP22Ref,
         },
     };
 
-    use ink_env::CallFlags;
+    use ink::storage::Mapping;
 
 
     
     
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
     pub struct StakingContract {
         
         //Deployer address 
@@ -31,13 +25,13 @@ pub mod staking_contract {
         //PANX psp22 contract address
         panx_psp22: AccountId,
         //Staking contract deploy date in tsp 
-        started_date_in_timestamp:u64,
+        started_date_in_timestamp:Balance,
         //Locked PANX amount for users
-        balances: ink_storage::Mapping<AccountId, Balance>,
+        balances: Mapping<AccountId, Balance>,
         //panx reward for a day, for each account
-        panx_to_give_in_a_day: ink_storage::Mapping<AccountId, Balance>,
+        panx_to_give_in_a_day: Mapping<AccountId, Balance>,
         //last time account redeemed
-        last_redeemed:ink_storage::Mapping<AccountId, u64>,
+        last_redeemed:Mapping<AccountId, u64>,
 
 
     }
@@ -47,15 +41,22 @@ pub mod staking_contract {
         #[ink(constructor)]
         pub fn new(panx_contract:AccountId) -> Self {
             
-            let me = ink_lang::utils::initialize_contract(|contract: &mut Self| {
-                contract.panx_psp22 = panx_contract;  
-                
-                contract.started_date_in_timestamp = contract.get_current_timestamp();
-                contract.manager = Self::env().caller();
-               
-            });
-            
-            me
+
+            let manager:AccountId = Self::env().caller();
+            let panx_psp22:AccountId = panx_contract;
+            let started_date_in_timestamp:Balance = Self::env().block_timestamp().into();
+            let balances = Mapping::default();
+            let panx_to_give_in_a_day = Mapping::default();
+            let last_redeemed = Mapping::default();
+
+            Self{
+                manager,
+                panx_psp22,
+                started_date_in_timestamp,
+                balances,
+                panx_to_give_in_a_day,
+                last_redeemed
+            }
            
         }
 
@@ -95,7 +96,7 @@ pub mod staking_contract {
                 }
 
                //transfers PANX from account to staking contract
-                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").unwrap_or_else(|error| {
+                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink::prelude::vec![]).call_flags(ink::env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").unwrap_or_else(|error| {
                     panic!(
                         "Failed to transfer PSP22 tokens to staking contract : {:?}",
                         error
@@ -151,7 +152,7 @@ pub mod staking_contract {
                     }
 
                 //transfers PANX from account to staking contract
-                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink_prelude::vec![]).call_flags(CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").unwrap_or_else(|error| {
+                PSP22Ref::transfer_from_builder(&self.panx_psp22, self.env().caller(), Self::env().account_id(), panx_to_lock, ink::prelude::vec![]).call_flags(ink::env::CallFlags::default().set_allow_reentry(true)).fire().expect("Transfer failed").unwrap_or_else(|error| {
                     panic!(
                         "Failed to transfer PSP22 tokens to staking contract : {:?}",
                         error
@@ -248,7 +249,7 @@ pub mod staking_contract {
             let panx_redeemable_amount:Balance = self.get_redeemable_amount();
 
             //cross contract call to PANX contract to transfer PANX to account
-            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), panx_redeemable_amount, ink_prelude::vec![]).unwrap_or_else(|error| {
+            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), panx_redeemable_amount, ink::prelude::vec![]).unwrap_or_else(|error| {
                 panic!(
                     "Failed to transfer PSP22 tokens to caller : {:?}",
                     error
@@ -330,7 +331,7 @@ pub mod staking_contract {
            self.panx_to_give_in_a_day.insert(account_address,&new_amount_to_give_each_day);
 
            //cross contract call to PANX contract to transfer PANX to the account
-           PSP22Ref::transfer(&self.panx_psp22, account_address, amount_of_panx_to_give, ink_prelude::vec![]).unwrap_or_else(|error| {
+           PSP22Ref::transfer(&self.panx_psp22, account_address, amount_of_panx_to_give, ink::prelude::vec![]).unwrap_or_else(|error| {
             panic!(
                 "Failed to transfer PSP22 tokens to caller : {:?}",
                 error
@@ -379,9 +380,9 @@ pub mod staking_contract {
 
         ///funtion to get the started date since issuing the staking contract in timpstamp and str
         #[ink(message)]
-        pub fn get_started_date(&self) -> u64 {
+        pub fn get_started_date(&self) -> Balance {
             let timestamp = self.started_date_in_timestamp;
-            timestamp
+            timestamp.into()
         }
 
         
@@ -395,10 +396,19 @@ pub mod staking_contract {
 
         //get the days pass since deployment
         #[ink(message)]
-        pub fn get_days_passed_since_issue(&self) -> u64 {
-            let current_tsp = self.env().block_timestamp() / 1000;
+        pub fn get_days_passed_since_issue(&self) -> Balance {
+            let current_tsp:Balance = (self.env().block_timestamp() / 1000).into();
 
-            let days_diff = (current_tsp - self.started_date_in_timestamp) / 86400;
+            let days_diff :Balance;
+
+            match  (current_tsp - self.started_date_in_timestamp).checked_div(86400) {
+                Some(result) => {
+                    days_diff = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
 
             days_diff
         }

@@ -21,7 +21,8 @@ pub mod trading_pair_azero {
         },
     };
     use ink::storage::Mapping;
-    
+
+
 
     
     
@@ -48,6 +49,38 @@ pub mod trading_pair_azero {
         traders_fee:Balance
 
 
+    }
+
+    #[ink(event)]
+    pub struct LiquidityPoolProvision {
+        from:AccountId,
+        a0_deposited_amount:Balance,
+        psp22_deposited_amount: Balance,
+        shares_given:Balance
+    }
+
+    #[ink(event)]
+    pub struct LiquidityPoolWithdrawal {
+        caller:AccountId,
+        shares_given:Balance,
+        a0_given_amount:Balance,
+        psp22_given_amount: Balance,
+        new_shares_balance:Balance
+    }
+
+    #[ink(event)]
+    pub struct A0Swap {
+        caller:AccountId,
+        a0_deposited_amount:Balance,
+        psp22_given_amount:Balance
+    }
+
+    #[ink(event)]
+    pub struct PSP22Swap {
+        caller:AccountId,
+        psp22_deposited_amount:Balance,
+        a0_given_amount:Balance,
+  
     }
 
 
@@ -183,6 +216,7 @@ pub mod trading_pair_azero {
            self.balances.insert(self.env().caller(), &(new_caller_shares));
            //adding to over LP tokens (mint)
            self.total_supply += shares;
+           Self::env().emit_event(LiquidityPoolProvision{from:self.env().caller(),a0_deposited_amount:self.env().transferred_value(),psp22_deposited_amount:psp22_deposit_amount,shares_given:shares})
 
 
 
@@ -245,6 +279,8 @@ pub mod trading_pair_azero {
            self.balances.insert(caller, &(new_caller_lp_shares));
            //reducing over LP token supply (burn)
            self.total_supply -= shares;
+           Self::env().emit_event(LiquidityPoolWithdrawal{caller:caller,shares_given:shares,a0_given_amount:a0_amount_to_give,psp22_given_amount:psp22_amount_to_give,new_shares_balance:new_caller_lp_shares});
+
 
 
        }
@@ -408,6 +444,7 @@ pub mod trading_pair_azero {
  
 
         ///function to get the amount of A0 the caller will get for 1 PSP22 token.
+        #[ink(message)]
         pub fn get_price_for_one_psp22(&self)-> Balance {
 
             let amount_out = self.get_est_price_psp22_to_a0(1u128 * (10u128.pow(12)));
@@ -817,6 +854,8 @@ pub mod trading_pair_azero {
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
+            Self::env().emit_event(PSP22Swap{caller:self.env().caller(),psp22_deposited_amount:psp22_amount_to_transfer,a0_given_amount:actual_a0_amount_out_for_caller});
+
 
         }
 
@@ -882,6 +921,8 @@ pub mod trading_pair_azero {
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
+            Self::env().emit_event(A0Swap{caller:self.env().caller(),a0_deposited_amount:self.env().transferred_value(),psp22_given_amount:actual_psp22_amount_out_for_caller});
+
             
             
         }
@@ -1029,6 +1070,7 @@ pub mod trading_pair_azero {
         }
          
         //function to get the allowance of spender from the owner
+        #[ink(message)]
         pub fn get_lp_tokens_allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
             self.lp_tokens_allowances.get(&(owner,spender)).unwrap_or(0)
         }
