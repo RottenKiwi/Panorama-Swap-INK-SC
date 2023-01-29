@@ -30,12 +30,12 @@ pub mod airdrop_contract {
     }
 
     #[ink(event)]
-    pub struct 50PanxClaim {
+    pub struct PanxClaim50 {
         caller:AccountId
     }
 
     #[ink(event)]
-    pub struct 500PanxClaim {
+    pub struct PanxClaim500 {
         caller:AccountId
     }
 
@@ -82,7 +82,7 @@ pub mod airdrop_contract {
             };
 
            //transfers the airdrop tokens to caller
-           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer,ink::prelude:vec![]).unwrap_or_else(|error| {
+           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink::prelude::vec![]).unwrap_or_else(|error| {
             panic!(
                 "Failed to transfer PSP22 tokens to caller : {:?}",
                 error
@@ -91,7 +91,7 @@ pub mod airdrop_contract {
 
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
-           Self::env().emit_event(50PanxClaim{caller:self.env().caller()});
+           Self::env().emit_event(PanxClaim50{caller:self.env().caller()});
 
         
         }
@@ -109,7 +109,7 @@ pub mod airdrop_contract {
 
             let tokens_to_transfer:Balance;
 
-            match 500.checked_mul(10u128.pow(12)) {
+            match 500u128.checked_mul(10u128.pow(12)) {
                 Some(result) => {
                     tokens_to_transfer = result;
                 }
@@ -119,7 +119,7 @@ pub mod airdrop_contract {
             };
 
            //transfers the airdrop tokens to caller
-            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink_prelude::vec![]).unwrap_or_else(|error| {
+            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink::prelude::vec![]).unwrap_or_else(|error| {
             panic!(
                 "Failed to transfer PSP22 tokens to caller : {:?}",
                 error
@@ -127,7 +127,7 @@ pub mod airdrop_contract {
             });
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
-           Self::env().emit_event(500PanxClaim{caller:self.env().caller()});
+           Self::env().emit_event(PanxClaim500{caller:self.env().caller()});
 
         }
 
