@@ -331,14 +331,14 @@ dependencies = [
 [[package]]
 name = "ink"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "derive_more",
  "ink_env",
  "ink_macro",
  "ink_metadata",
- "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "ink_storage",
  "parity-scale-codec",
 ]
@@ -346,7 +346,7 @@ dependencies = [
 [[package]]
 name = "ink_allocator"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "cfg-if",
 ]
@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "ink_codegen"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "blake2 0.10.5",
  "derive_more",
@@ -362,8 +362,8 @@ dependencies = [
  "env_logger",
  "heck 0.4.0",
  "impl-serde",
- "ink_ir 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_ir 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "itertools",
  "log",
  "parity-scale-codec",
@@ -377,11 +377,11 @@ dependencies = [
 [[package]]
 name = "ink_engine"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "blake2 0.10.5",
  "derive_more",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "parity-scale-codec",
  "secp256k1",
  "sha2",
@@ -391,7 +391,7 @@ dependencies = [
 [[package]]
 name = "ink_env"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "arrayref",
  "blake2 0.10.5",
@@ -400,8 +400,8 @@ dependencies = [
  "ink_allocator",
  "ink_engine",
  "ink_metadata",
- "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "ink_storage_traits",
  "num-traits",
  "parity-scale-codec",
@@ -431,7 +431,7 @@ dependencies = [
 [[package]]
 name = "ink_ir"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "blake2 0.10.5",
  "either",
@@ -444,11 +444,11 @@ dependencies = [
 [[package]]
 name = "ink_macro"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "ink_codegen",
- "ink_ir 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_ir 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "parity-scale-codec",
  "proc-macro2",
  "quote",
@@ -459,12 +459,12 @@ dependencies = [
 [[package]]
 name = "ink_metadata"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "derive_more",
  "impl-serde",
- "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "scale-info",
  "serde",
 ]
@@ -481,7 +481,7 @@ dependencies = [
 [[package]]
 name = "ink_prelude"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "cfg-if",
 ]
@@ -501,10 +501,10 @@ dependencies = [
 [[package]]
 name = "ink_primitives"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "derive_more",
- "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "parity-scale-codec",
  "scale-info",
  "xxhash-rust",
@@ -513,15 +513,15 @@ dependencies = [
 [[package]]
 name = "ink_storage"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "array-init",
  "cfg-if",
  "derive_more",
  "ink_env",
  "ink_metadata",
- "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "ink_storage_traits",
  "parity-scale-codec",
  "scale-info",
@@ -530,11 +530,11 @@ dependencies = [
 [[package]]
 name = "ink_storage_traits"
 version = "4.0.0-beta"
-source = "git+https://github.com/paritytech/ink#7af88f68853c376d898dc15299c74f46e2f3897d"
+source = "git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde#4655a8b4413cb50cbc38d1b7c173ad426ab06cde"
 dependencies = [
  "ink_metadata",
- "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink)",
- "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink)",
+ "ink_prelude 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
+ "ink_primitives 4.0.0-beta (git+https://github.com/paritytech/ink?rev=4655a8b4413cb50cbc38d1b7c173ad426ab06cde)",
  "parity-scale-codec",
  "scale-info",
  "syn",
@@ -625,7 +625,7 @@ dependencies = [
 [[package]]
 name = "obce"
 version = "0.1.0"
-source = "git+https://github.com/727-Ventures/obce?branch=main#630b85029e769cff55c1d1f834f732af294eabcc"
+source = "git+https://github.com/727-Ventures/obce?tag=3.0.0-beta#e4d93be5ea31ea39fd5c692e93ebe319b51cd604"
 dependencies = [
  "ink",
  "ink_engine",
@@ -637,7 +637,7 @@ dependencies = [
 [[package]]
 name = "obce-codegen"
 version = "0.1.0"
-source = "git+https://github.com/727-Ventures/obce?branch=main#630b85029e769cff55c1d1f834f732af294eabcc"
+source = "git+https://github.com/727-Ventures/obce?tag=3.0.0-beta#e4d93be5ea31ea39fd5c692e93ebe319b51cd604"
 dependencies = [
  "blake2 0.10.5",
  "proc-macro2",
@@ -648,7 +648,7 @@ dependencies = [
 [[package]]
 name = "obce-macro"
 version = "0.1.0"
-source = "git+https://github.com/727-Ventures/obce?branch=main#630b85029e769cff55c1d1f834f732af294eabcc"
+source = "git+https://github.com/727-Ventures/obce?tag=3.0.0-beta#e4d93be5ea31ea39fd5c692e93ebe319b51cd604"
 dependencies = [
  "obce-codegen",
  "proc-macro2",
@@ -670,8 +670,8 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openbrush"
-version = "2.4.0"
-source = "git+https://github.com/727-Ventures/openbrush-contracts?branch=feature/update-to-ink-4.0.0-beta#60272c7bc68b64b4c9eea65d89f96ef47098e69f"
+version = "3.0.0-beta"
+source = "git+https://github.com/727-Ventures/openbrush-contracts?tag=3.0.0-beta#14ff655a0d83440f40c57c82d9a33e4c5b981da7"
 dependencies = [
  "ink",
  "openbrush_contracts",
@@ -682,8 +682,8 @@ dependencies = [
 
 [[package]]
 name = "openbrush_contracts"
-version = "2.4.0"
-source = "git+https://github.com/727-Ventures/openbrush-contracts?branch=feature/update-to-ink-4.0.0-beta#60272c7bc68b64b4c9eea65d89f96ef47098e69f"
+version = "3.0.0-beta"
+source = "git+https://github.com/727-Ventures/openbrush-contracts?tag=3.0.0-beta#14ff655a0d83440f40c57c82d9a33e4c5b981da7"
 dependencies = [
  "ink",
  "openbrush_lang",
@@ -694,8 +694,8 @@ dependencies = [
 
 [[package]]
 name = "openbrush_lang"
-version = "2.4.0"
-source = "git+https://github.com/727-Ventures/openbrush-contracts?branch=feature/update-to-ink-4.0.0-beta#60272c7bc68b64b4c9eea65d89f96ef47098e69f"
+version = "3.0.0-beta"
+source = "git+https://github.com/727-Ventures/openbrush-contracts?tag=3.0.0-beta#14ff655a0d83440f40c57c82d9a33e4c5b981da7"
 dependencies = [
  "const_format",
  "ink",
@@ -707,8 +707,8 @@ dependencies = [
 
 [[package]]
 name = "openbrush_lang_codegen"
-version = "2.4.0"
-source = "git+https://github.com/727-Ventures/openbrush-contracts?branch=feature/update-to-ink-4.0.0-beta#60272c7bc68b64b4c9eea65d89f96ef47098e69f"
+version = "3.0.0-beta"
+source = "git+https://github.com/727-Ventures/openbrush-contracts?tag=3.0.0-beta#14ff655a0d83440f40c57c82d9a33e4c5b981da7"
 dependencies = [
  "blake2 0.9.2",
  "cargo_metadata",
@@ -727,8 +727,8 @@ dependencies = [
 
 [[package]]
 name = "openbrush_lang_macro"
-version = "2.4.0"
-source = "git+https://github.com/727-Ventures/openbrush-contracts?branch=feature/update-to-ink-4.0.0-beta#60272c7bc68b64b4c9eea65d89f96ef47098e69f"
+version = "3.0.0-beta"
+source = "git+https://github.com/727-Ventures/openbrush-contracts?tag=3.0.0-beta#14ff655a0d83440f40c57c82d9a33e4c5b981da7"
 dependencies = [
  "openbrush_lang_codegen",
  "proc-macro2",
@@ -739,7 +739,7 @@ dependencies = [
 [[package]]
 name = "pallet-assets-chain-extension"
 version = "0.1.1"
-source = "git+https://github.com/727-ventures/pallet-assets-chain-extension?branch=main#738c6d401ecf1c86fc69e2b558bf331bbd805d3b"
+source = "git+https://github.com/727-ventures/pallet-assets-chain-extension?tag=3.0.0-beta#7e553468e9c0fbd4f543ccb950b3d17b548237f1"
 dependencies = [
  "ink",
  "obce",

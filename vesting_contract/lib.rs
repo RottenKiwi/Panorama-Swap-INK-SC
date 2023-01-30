@@ -13,7 +13,7 @@ pub mod vesting_contract {
         },
     };
     use ink::storage::Mapping; 
-    
+
     #[ink(storage)]
     pub struct VestingContract {
         

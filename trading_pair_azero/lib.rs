@@ -53,7 +53,7 @@ pub mod trading_pair_azero {
 
     #[ink(event)]
     pub struct LiquidityPoolProvision {
-        from:AccountId,
+        provider:AccountId,
         a0_deposited_amount:Balance,
         psp22_deposited_amount: Balance,
         shares_given:Balance
@@ -216,7 +216,7 @@ pub mod trading_pair_azero {
            self.balances.insert(self.env().caller(), &(new_caller_shares));
            //adding to over LP tokens (mint)
            self.total_supply += shares;
-           Self::env().emit_event(LiquidityPoolProvision{from:self.env().caller(),a0_deposited_amount:self.env().transferred_value(),psp22_deposited_amount:psp22_deposit_amount,shares_given:shares})
+           Self::env().emit_event(LiquidityPoolProvision{provider:self.env().caller(),a0_deposited_amount:self.env().transferred_value(),psp22_deposited_amount:psp22_deposit_amount,shares_given:shares})
 
 
 
@@ -256,7 +256,7 @@ pub mod trading_pair_azero {
             None => {
                 panic!("overflow!");
             }
-        };
+            };
            
            //cross contract call to PSP22 contract to transfer PSP2 to the caller.
            PSP22Ref::transfer(&self.psp22_token, caller, psp22_amount_to_give, ink::prelude::vec![]).unwrap_or_else(|error| {
