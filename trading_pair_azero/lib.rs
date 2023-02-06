@@ -72,7 +72,9 @@ pub mod trading_pair_azero {
     pub struct A0Swap {
         caller:AccountId,
         a0_deposited_amount:Balance,
-        psp22_given_amount:Balance
+        psp22_given_amount:Balance,
+        psp22_given_to_vault:Balance,
+
     }
 
     #[ink(event)]
@@ -94,8 +96,8 @@ pub mod trading_pair_azero {
             let balances = Mapping::default();
             let lp_tokens_allowances = Mapping::default();
             let psp22_token = psp22_contract;
-            let total_supply = 0;
-            let traders_fee:Balance = 25000000000 / 10u128.pow(12);
+            let total_supply:Balance = 0;
+            let traders_fee:Balance = 25;
 
             Self {
                 transasction_number,
@@ -804,8 +806,20 @@ pub mod trading_pair_azero {
 
             let actual_a0_amount_out_for_caller:Balance;
 
+            let a0_amount_out_for_vault:Balance;
+
+            //calculating the amount of A0 coins to allocate to the vault account
+            match  (a0_amount_out_for_caller_before_traders_fee * self.traders_fee).checked_div(1000u128)  {
+                Some(result) => {
+                    a0_amount_out_for_vault = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
             //calculating the final amount of A0 coins to give to the caller after reducing traders fee
-            match  a0_amount_out_for_caller_before_traders_fee.checked_sub(a0_amount_out_for_caller_before_traders_fee * self.traders_fee) {
+            match  a0_amount_out_for_caller_before_traders_fee.checked_sub(a0_amount_out_for_vault) {
                 Some(result) => {
                     actual_a0_amount_out_for_caller = result;
                 }
@@ -814,12 +828,13 @@ pub mod trading_pair_azero {
                 }
             };
 
-            let a0_amount_out_for_vault:Balance;
 
-            //calculating the amount of A0 coins to allocate to the vault account
-            match  a0_amount_out_for_caller_before_traders_fee.checked_sub(actual_a0_amount_out_for_caller) {
+            let psp22_amount_out_for_vault:Balance;
+
+            //calculating the amount of PSP22 tokens to allocate to the vault account
+            match  (psp22_amount_to_transfer * self.traders_fee).checked_div(1000u128)  {
                 Some(result) => {
-                    a0_amount_out_for_vault = result;
+                    psp22_amount_out_for_vault = result;
                 }
                 None => {
                     panic!("overflow!");
@@ -832,6 +847,14 @@ pub mod trading_pair_azero {
                 "Error in PSP22 transferFrom cross contract call function, kindly re-adjust your deposited PSP22 tokens."
            )
            }
+
+            //cross contract call to PSP22 contract to transfer PSP22 to the vault
+            PSP22Ref::transfer(&self.psp22_token, self.vault, psp22_amount_out_for_vault, ink::prelude::vec![]).unwrap_or_else(|error| {
+                panic!(
+                    "Failed to transfer PSP22 tokens to vault : {:?}",
+                    error
+                )
+            });
 
 
             //function to transfer A0 to the caller.
@@ -873,15 +896,28 @@ pub mod trading_pair_azero {
             //validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
                 panic!(
-                    "The percentage difference is bigger than the given slippage,
-                    kindly re-adjust the slippage settings."
+                    "The percentage difference is bigger than the given slippage, kindly re-adjust the slippage settings."
                 )
             }
 
+
+            let psp22_amount_out_for_vault:Balance;
+            
             let actual_psp22_amount_out_for_caller:Balance;
 
+            //calculating the amount of PSP22 tokens to allocate to the vault account
+            match (psp22_amount_out_for_caller_before_traders_fee * self.traders_fee).checked_div(1000u128) {
+                Some(result) => {
+                    psp22_amount_out_for_vault = result;
+                }
+                None => {
+                    panic!("overflow!");
+                }
+            };
+
+
             //calculating the final amount of PSP22 tokens to give to the caller after reducing traders fee
-            match psp22_amount_out_for_caller_before_traders_fee.checked_sub(psp22_amount_out_for_caller_before_traders_fee * self.traders_fee) {
+            match psp22_amount_out_for_caller_before_traders_fee.checked_sub(psp22_amount_out_for_vault) {
                 Some(result) => {
                     actual_psp22_amount_out_for_caller = result;
                 }
@@ -890,12 +926,12 @@ pub mod trading_pair_azero {
                 }
             };
 
-            let psp22_amount_out_for_vault:Balance;
+            let a0_amount_out_for_vault:Balance;
 
-            //calculating the amount of PSP22 tokens to allocate to the vault account
-            match psp22_amount_out_for_caller_before_traders_fee.checked_sub(actual_psp22_amount_out_for_caller) {
+            //calculating the amount of A0 coins to allocate to the vault account
+            match (self.env().transferred_value() * self.traders_fee).checked_div(1000u128) {
                 Some(result) => {
-                    psp22_amount_out_for_vault = result;
+                    a0_amount_out_for_vault = result;
                 }
                 None => {
                     panic!("overflow!");
@@ -918,10 +954,19 @@ pub mod trading_pair_azero {
                 )
             });
 
+            //function to transfer A0 to the vault.
+            if self.env().transfer(self.vault, a0_amount_out_for_vault).is_err() {
+                panic!(
+                    "requested transfer failed. this can be the case if the contract does not\
+                     have sufficient free funds or if the transfer would have brought the\
+                     contract's balance below minimum balance."
+                )
+            }
+
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
-            Self::env().emit_event(A0Swap{caller:self.env().caller(),a0_deposited_amount:self.env().transferred_value(),psp22_given_amount:actual_psp22_amount_out_for_caller});
+            Self::env().emit_event(A0Swap{caller:self.env().caller(),a0_deposited_amount:self.env().transferred_value(),psp22_given_amount:actual_psp22_amount_out_for_caller,psp22_given_to_vault:psp22_amount_out_for_vault});
 
             
             
@@ -1117,6 +1162,13 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_fee(&self) -> Balance {
             let fee:Balance = self.fee;
+            fee
+        }
+
+        ///function to get current fee 
+        #[ink(message)]
+        pub fn get_traders_fee(&self) -> Balance {
+            let fee:Balance = self.traders_fee;
             fee
         }
 
