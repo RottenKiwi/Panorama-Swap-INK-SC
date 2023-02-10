@@ -608,7 +608,7 @@ pub mod trading_pair_azero {
                         }
                     };
                 }
-             }
+            }
 
 
             let amount_out:Balance;
@@ -631,6 +631,8 @@ pub mod trading_pair_azero {
         #[ink(message,payable)]
         pub fn get_est_price_a0_to_psp22(&self,a0_amout_in:Balance) -> Balance { 
 
+            let caller_current_balance:Balance = PSP22Ref::balance_of(&self.panx_contract, self.env().caller());
+
             let actual_fee:Balance;
 
             //calculating the actual LP fee
@@ -643,22 +645,54 @@ pub mod trading_pair_azero {
                 }
             };
 
-            let amount_in_with_fees:Balance;
+            let mut amount_in_with_lp_fees:Balance;
 
             //reducting the LP fee from the A0 amount in
             match a0_amout_in.checked_mul(100u128 - actual_fee){
                 Some(result) => {
-                    amount_in_with_fees = result;
+                    amount_in_with_lp_fees = result;
                 }
                 None => {
                     panic!("overflow!");
                 }
             };
 
+            let tokens_to_validate = 3500u128 * 10u128.pow(12);
+
+            //validating if the caller has more than 3500 PANX
+            if caller_current_balance >= tokens_to_validate{
+
+                if self.fee  <= 1400000000000 {
+
+                    //reducting HALF of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is less than 1.4%
+                    match a0_amout_in.checked_mul(100u128 - (actual_fee / 2u128)) {
+                        Some(result) => {
+                            amount_in_with_lp_fees = result;
+                        }
+                        None => {
+                            panic!("overflow!");
+                        }
+                    };
+                }
+ 
+                if self.fee  > 1400000000000 {
+
+                    //reducting (LP fee - 1) of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is more than 1.4%
+                    match a0_amout_in.checked_mul(100u128 - (actual_fee - 1u128)) {
+                        Some(result) => {
+                            amount_in_with_lp_fees = result;
+                        }
+                        None => {
+                            panic!("overflow!");
+                        }
+                    };
+                }
+            }
+
             let amount_out:Balance;
 
             //calculating the final PSP22 amount to transfer to the caller
-            match (amount_in_with_fees * self.get_psp22_balance()).checked_div((self.get_a0_balance() * 100u128) + amount_in_with_fees){
+            match (amount_in_with_lp_fees * self.get_psp22_balance()).checked_div((self.get_a0_balance() * 100u128) + amount_in_with_lp_fees){
                 Some(result) => {
                     amount_out = result;
                 }
