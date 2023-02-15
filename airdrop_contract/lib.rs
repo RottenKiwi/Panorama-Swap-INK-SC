@@ -15,15 +15,14 @@ pub mod airdrop_contract {
     };
 
     use ink::storage::Mapping;
+    use ink::env::CallFlags;
+    use ink::prelude::vec;
 
     #[ink(storage)]
     pub struct AirdropContract {
         
-        //Deployer address 
         manager: AccountId,
-        //PANX psp22 contract address
         panx_psp22: AccountId,
-        // 0 didnt collect, 1 did collect.
         collected_airdrop: Mapping<AccountId, i64>,
 
 
@@ -41,12 +40,13 @@ pub mod airdrop_contract {
 
 
     impl AirdropContract {
-        /// Creates a new airdrop contract.
         #[ink(constructor)]
-        pub fn new(panx_contract:AccountId) -> Self {
+        pub fn new(
+            panx_contract:AccountId
+        ) -> Self {
             
             let panx_psp22 = panx_contract;  
-                let manager = Self::env().caller();
+            let manager = Self::env().caller();
             let collected_airdrop = Mapping::default();
             
             Self{
@@ -61,12 +61,15 @@ pub mod airdrop_contract {
 
         ///function to collect 50 PANX
         #[ink(message)]
-        pub fn collect_50_tokens(&mut self)  {
+        pub fn collect_50_tokens(
+            &mut self
+        )  {
 
-           //making sure account didnt redeem airdrop yet
-           if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
+            //making sure account didnt redeem airdrop yet
+            if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
             panic!(
-                "Caller already redeemed the airdrop, cannot redeem again."
+                "Caller already redeemed the airdrop, 
+                cannot redeem again."
             )
             }
 
@@ -81,30 +84,42 @@ pub mod airdrop_contract {
                 }
             };
 
-           //transfers the airdrop tokens to caller
-           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink::prelude::vec![]).unwrap_or_else(|error| {
-            panic!(
-                "Failed to transfer PSP22 tokens to caller : {:?}",
-                error
-            )
+            //transfers the airdrop tokens to caller
+            PSP22Ref::transfer(
+                &self.panx_psp22,
+                self.env().caller(),
+                tokens_to_transfer,
+                vec![])
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
             });
 
-           //make sure to change his collected airdrop status to 1 to prevent the user to call it again
-           self.collected_airdrop.insert(self.env().caller(),&1);
-           Self::env().emit_event(PanxClaim50{caller:self.env().caller()});
+            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
+            self.collected_airdrop.insert(self.env().caller(),&1);
+
+            Self::env().emit_event(PanxClaim50{
+                caller:self.env().caller()
+            });
 
         
         }
 
         ///function to collect 500 PANX
         #[ink(message)]
-        pub fn collect_500_tokens(&mut self)  {
+        pub fn collect_500_tokens(
+            &mut self
+        )  {
 
-           //making sure account didnt redeem airdrop yet
-           if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
-            panic!(
-                "Caller already redeemed the airdrop, cannot redeem again."
-            )
+            let caller = self.env().caller();
+
+            //making sure account didnt redeem airdrop yet
+            if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
+                panic!(
+                    "Caller already redeemed the airdrop, cannot redeem again."
+                )
             }
 
             let tokens_to_transfer:Balance;
@@ -118,25 +133,37 @@ pub mod airdrop_contract {
                 }
             };
 
-           //transfers the airdrop tokens to caller
-            PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), tokens_to_transfer, ink::prelude::vec![]).unwrap_or_else(|error| {
-            panic!(
-                "Failed to transfer PSP22 tokens to caller : {:?}",
-                error
-            )
+            //transfers the airdrop tokens to caller
+            PSP22Ref::transfer(
+                    &self.panx_psp22,
+                    caller,
+                    tokens_to_transfer,
+                    vec![])
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "Failed to transfer PSP22 tokens to caller : {:?}",
+                            error
+                        )
             });
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
-           Self::env().emit_event(PanxClaim500{caller:self.env().caller()});
+           
+            Self::env().emit_event(PanxClaim500{
+                caller:caller
+            });
 
         }
 
 
         ///funtion to get airdrop contract PANX reserve
         #[ink(message)]
-        pub fn get_airdrop_contract_panx_reserve(&self)-> Balance  {
+        pub fn get_airdrop_contract_panx_reserve(
+            &self
+        )-> Balance  {
         
-            let balance:Balance = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
+            let balance:Balance = PSP22Ref::balance_of(
+                &self.panx_psp22,
+                Self::env().account_id());
             balance
 
         }
@@ -144,11 +171,14 @@ pub mod airdrop_contract {
 
         ///function to get account airdrop collection status
         #[ink(message)]
-        pub fn user_airdrop_collection_status(&mut self,account:AccountId)->i64  {
+        pub fn user_airdrop_collection_status(
+            &mut self,
+            account:AccountId
+        )->i64  {
 
             let airdrop_status = self.collected_airdrop.get(account).unwrap_or(0);
-            airdrop_status
 
+            airdrop_status
 
         }
 

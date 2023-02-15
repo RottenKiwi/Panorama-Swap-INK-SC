@@ -12,24 +12,19 @@ pub mod vesting_contract {
             traits::psp22::PSP22Ref,
         },
     };
-    use ink::storage::Mapping; 
+    use ink::storage::Mapping;
+    use ink::env::CallFlags;
+    use ink::prelude::vec;
 
     #[ink(storage)]
     pub struct VestingContract {
         
-        //Deployer address 
         manager: AccountId,
-        //PANX psp22 contract address
         panx_psp22: AccountId,
-        //Vesting contract deploy date in tsp 
         started_date_in_timestamp:Balance,
-        //Locked PANX amount of users
         balances: Mapping<AccountId, Balance>,
-        // 0 didnt collect, 1 did collect.
         collected_tge: Mapping<AccountId, Balance>,
-        //Panx reward for a day, for each account
         panx_to_give_in_a_day:Mapping<AccountId, Balance>,
-        //Last date of caller redeem
         last_redeemed:Mapping<AccountId, Balance>,
 
 
@@ -57,9 +52,10 @@ pub mod vesting_contract {
     }
 
     impl VestingContract {
-        /// Creates a new instance of this contract.
         #[ink(constructor)]
-        pub fn new(panx_contract:AccountId) -> Self {
+        pub fn new(
+            panx_contract:AccountId
+        ) -> Self {
             
 
                 let panx_psp22 = panx_contract;  
@@ -91,12 +87,17 @@ pub mod vesting_contract {
         ///adding seed events participants to vesting contract and their PANX vesting allocation
         ///Only manager can use this function
         #[ink(message)]
-        pub fn add_to_vesting(&mut self,account:AccountId,panx_to_give_overall:Balance)  {
+        pub fn add_to_vesting(
+            &mut self,
+            account:AccountId,
+            panx_to_give_overall:Balance
+        )  {
 
            //Making sure caller is the manager (Only manager can add to the vesting program)
            if self.env().caller() != self.manager {
            panic!(
-                "The caller is not the manager, cannot add account to vesting program."
+                "The caller is not the manager,
+                cannot add account to vesting program."
            )
            }
 
@@ -135,7 +136,11 @@ pub mod vesting_contract {
            //Insert the current date as last redeem date for account.
            self.last_redeemed.insert(account, &self.get_current_timestamp());
 
-           Self::env().emit_event(AddToVestingProgram{added_account:self.env().caller(),total_vesting_amount:panx_to_give_overall,panx_amount_to_give_each_day:panx_amount_to_give_each_day});
+           Self::env().emit_event(AddToVestingProgram{
+                added_account:self.env().caller(),
+                total_vesting_amount:panx_to_give_overall,
+                panx_amount_to_give_each_day:panx_amount_to_give_each_day
+            });
 
               
         }
@@ -143,7 +148,9 @@ pub mod vesting_contract {
 
         ///function to collect TGE (10%) for caller
         #[ink(message)]
-        pub fn collect_tge_tokens(&mut self)  {
+        pub fn collect_tge_tokens(
+            &mut self
+        )  {
 
            let caller = self.env().caller();
 
@@ -187,19 +194,29 @@ pub mod vesting_contract {
             };
 
            //transfers the TGE tokens to caller
-           PSP22Ref::transfer(&self.panx_psp22, self.env().caller(), amount_of_panx_to_give, ink::prelude::vec![]).unwrap_or_else(|error| {
-            panic!(
-                "Failed to transfer PSP22 tokens to caller : {:?}",
-                error
-            )
+           PSP22Ref::transfer(
+                &self.panx_psp22,
+                caller,
+                amount_of_panx_to_give,
+                vec![])
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "Failed to transfer PSP22 tokens to caller : {:?}",
+                            error
+                        )
             });
+
            //deducts from overall vesting amount to give
            self.balances.insert(caller, &(caller_current_balance - amount_of_panx_to_give));
 
            //make sure to change his collected tge status to 1 to prevent the user to call it again
            self.collected_tge.insert(caller,&1);
 
-           Self::env().emit_event(CollectedTGE{caller:caller,panx_given_amount:amount_of_panx_to_give,caller_new_balance:caller_current_balance - amount_of_panx_to_give});
+           Self::env().emit_event(CollectedTGE{
+                caller:caller,
+                panx_given_amount:amount_of_panx_to_give,
+                caller_new_balance:caller_current_balance - amount_of_panx_to_give
+            });
 
 
 
@@ -208,7 +225,9 @@ pub mod vesting_contract {
 
         ///function to get caller redeemable amount of tokens
         #[ink(message)]
-        pub fn get_redeemable_amount(&mut self) -> Balance {
+        pub fn get_redeemable_amount(
+            &mut self
+        ) -> Balance {
 
             
             let caller = self.env().caller();
@@ -274,7 +293,9 @@ pub mod vesting_contract {
 
         ///function for caller to redeem his redeemable tokens.
         #[ink(message)]
-        pub fn redeem_redeemable_amount(&mut self) {
+        pub fn redeem_redeemable_amount(
+            &mut self
+        ) {
 
             
             let caller = self.env().caller();
@@ -304,14 +325,23 @@ pub mod vesting_contract {
             self.balances.insert(caller, &(caller_new_vesting_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
-            PSP22Ref::transfer(&self.panx_psp22, caller, redeemable_amount, ink::prelude::vec![]).unwrap_or_else(|error| {
-                panic!(
-                    "Failed to transfer PSP22 tokens to caller : {:?}",
-                    error
-                )
+            PSP22Ref::transfer(
+                    &self.panx_psp22,
+                    caller,
+                    redeemable_amount,
+                    vec![])
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "Failed to transfer PSP22 tokens to caller : {:?}",
+                            error
+                        )
             });
 
-            Self::env().emit_event(Redeem{caller:caller,panx_given_amount:redeemable_amount,caller_new_balance:caller_total_vesting_amount - redeemable_amount});
+            Self::env().emit_event(Redeem{
+                    caller:caller,
+                    panx_given_amount:redeemable_amount,
+                    caller_new_balance:caller_total_vesting_amount - redeemable_amount
+            });
 
 
         }
@@ -319,15 +349,22 @@ pub mod vesting_contract {
 
         ///function to get caller total locked tokens
         #[ink(message)]
-        pub fn get_account_total_vesting_amount(&mut self,account:AccountId)-> Balance  {
+        pub fn get_account_total_vesting_amount(
+            &mut self,
+            account:AccountId
+        )-> Balance  {
         
            let account_balance:Balance = self.balances.get(&account).unwrap_or(0);
            account_balance
 
         }
+
         ///funtion to get caller last redeem in timestamp
         #[ink(message)]
-        pub fn get_account_last_redeem(&mut self,account:AccountId)->Balance  {
+        pub fn get_account_last_redeem(
+            &mut self,
+            account:AccountId
+        )->Balance  {
         
            let time_stamp = self.last_redeemed.get(&account).unwrap_or(0);
            time_stamp
@@ -335,7 +372,10 @@ pub mod vesting_contract {
         }
         ///function to get the amount of tokens to give to account each day.
         #[ink(message)]
-        pub fn get_amount_to_give_each_day_to_account(&mut self,account:AccountId)-> Balance  {
+        pub fn get_amount_to_give_each_day_to_account(
+            &mut self,
+            account:AccountId
+        )-> Balance  {
         
            let account_balance:Balance = self.panx_to_give_in_a_day.get(&account).unwrap_or(0);
            account_balance
@@ -343,42 +383,64 @@ pub mod vesting_contract {
         }
         ///funtion to get vesting contract PANX reserve
         #[ink(message)]
-        pub fn get_vesting_contract_panx_reserve(&self)-> Balance  {
+        pub fn get_vesting_contract_panx_reserve(
+            &self
+        )-> Balance  {
         
-            let vesting_panx_reserve = PSP22Ref::balance_of(&self.panx_psp22, Self::env().account_id());
+            let vesting_panx_reserve = PSP22Ref::balance_of(
+                    &self.panx_psp22,
+                    Self::env().account_id());
+
             vesting_panx_reserve
 
 
         }
         ///function to get account TGE collection status
         #[ink(message)]
-        pub fn user_tge_collection_status(&mut self,account:AccountId)->Balance  {
+        pub fn user_tge_collection_status(
+            &mut self,
+            account:AccountId
+        )->Balance  {
 
             let tge_status = self.collected_tge.get(account).unwrap_or(0);
+
             tge_status
 
 
         }
+
         ///funtion to get the started date since issuing the vesting contract in timpstamp and str
         #[ink(message)]
-        pub fn get_started_date(&self) -> Balance {
+        pub fn get_started_date(
+            &self
+        ) -> Balance {
+
             let timestamp = self.started_date_in_timestamp;
+
             timestamp
         }
 
         
         ///function to get current timpstamp in seconds
         #[ink(message)]
-        pub fn get_current_timestamp(&self) -> Balance {
+        pub fn get_current_timestamp(
+            &self
+        ) -> Balance {
+
             let bts = self.env().block_timestamp() / 1000;
+
             bts.into()
+
         }
 
         
 
         //get the days pass since deployment
         #[ink(message)]
-        pub fn get_days_passed_since_issue(&self) -> Balance {
+        pub fn get_days_passed_since_issue(
+            &self
+        ) -> Balance {
+            
             let current_tsp:Balance = (self.env().block_timestamp() / 1000).into();
 
             let days_diff :Balance;
