@@ -5,7 +5,7 @@
 # Welcome to Panorama Swap's smart contract repository!
 
 In this repositroy you'll find every smart contract we are using in Panorama Swap platform.
-We are using INK! domain specific language to write smart contract for networks that run Substrate framework and INK! contracts are compiled to WebAssembly.
+We are using ink! domain specific language to write smart contract for networks that run Substrate framework and ink! contracts are compiled to WebAssembly.
 We are following and implementing OpenBrush's PSP22 protocol and standard.
 
 *We are continually updating and adding more smart contracts and in-depth information, stay tuned :) 
@@ -38,7 +38,7 @@ We are following and implementing OpenBrush's PSP22 protocol and standard.
 
 3. Aleph Zero homepage: [https://alephzero.org/](https://alephzero.org/).
 
-4. INK! github repoistory: [https://github.com/paritytech/ink](https://github.com/paritytech/ink).
+4. ink! github repoistory: [https://github.com/paritytech/ink](https://github.com/paritytech/ink).
 
 5. OpenBrush's github repoistory: [https://github.com/Supercolony-net/openbrush-contracts](https://github.com/Supercolony-net/openbrush-contracts).
 
