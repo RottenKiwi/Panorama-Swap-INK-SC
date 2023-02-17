@@ -62,15 +62,15 @@ pub mod pair_creator {
                         .endowment(0)
                         .code_hash(azero_trading_pair_hash)
                         .salt_bytes(salt)
-                        .instantiate()
+                        .try_instantiate()
                         .unwrap_or_else(|error| {
                             panic!(
-                                "failed at instantiating the Azero trading pair contract: {:?}",
+                                "failed at instantiating the A0 trading pair contract: {:?}",
                                 error
                             )
             });
 
-            let new_pair_address = trading_pair.get_account_id();
+            let new_pair_address = trading_pair.expect("failed at instantiating the A0 trading pair").get_account_id();
 
             new_pair_address
         
@@ -101,7 +101,7 @@ pub mod pair_creator {
                         .endowment(0)
                         .code_hash(psp22_trading_pair_hash)
                         .salt_bytes(salt)
-                        .instantiate()
+                        .try_instantiate()
                         .unwrap_or_else(|error| {
                             panic!(
                                 "failed at instantiating the PSP22 trading pair contract: {:?}",
@@ -109,9 +109,9 @@ pub mod pair_creator {
                             )
             });
 
-            let new_pair_address = trading_pair.get_account_id();
+            let new_pair_address = trading_pair.expect("failed at instantiating the PSP22 trading pair").get_account_id();
 
-            add
+            new_pair_address
         
  
         }
