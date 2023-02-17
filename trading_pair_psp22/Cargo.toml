@@ -1,15 +1,15 @@
 [package]
 name = "trading_pair_psp22"
-version = "0.9.6"
+version = "1.0.0"
 authors = ["Yonatan Hornstein Yonatanhornstein@gmail.com"]
 edition = "2021"
 overflow-checks = false
 
 [dependencies]
-ink = { git = "https://github.com/paritytech/ink", rev = "4655a8b4413cb50cbc38d1b7c173ad426ab06cde", default-features = false}
+ink = { version = "~4.0.0", default-features = false}
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"], optional = true }
-openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag="3.0.0-beta", default-features= false, features = ["psp22"] }
+scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag="3.0.0", default-features= false, features = ["psp22"] }
 
 [lib]
 name = "trading_pair_psp22"

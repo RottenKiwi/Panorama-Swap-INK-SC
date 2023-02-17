@@ -190,7 +190,7 @@ pub mod trading_pair_psp22 {
                 vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
-                    .fire()
+                    .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
                         panic!(
@@ -230,7 +230,7 @@ pub mod trading_pair_psp22 {
                 vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
-                    .fire()
+                    .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
                         panic!(
@@ -1079,7 +1079,7 @@ pub mod trading_pair_psp22 {
                 vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
-                    .fire()
+                    .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
                         panic!(
@@ -1269,7 +1269,7 @@ pub mod trading_pair_psp22 {
                 vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
-                    .fire()
+                    .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
                         panic!(

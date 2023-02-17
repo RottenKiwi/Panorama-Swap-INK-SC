@@ -109,7 +109,8 @@ pub mod staking_contract {
                     panx_to_lock,
                     vec![])
                         .call_flags(CallFlags::default()
-                        .set_allow_reentry(true)).fire()
+                        .set_allow_reentry(true))
+                        .try_invoke()
                         .expect("Transfer failed")
                         .unwrap_or_else(|error| {
                             panic!(
@@ -180,8 +181,8 @@ pub mod staking_contract {
                     panx_to_lock, 
                     vec![])
                         .call_flags(CallFlags::default()
-                        .set_allow_reentry(true)).
-                        fire()
+                        .set_allow_reentry(true))
+                        .try_invoke()
                         .expect("Transfer failed")
                         .unwrap_or_else(|error| {
                             panic!(
@@ -209,7 +210,7 @@ pub mod staking_contract {
 
            let tokens_to_validate:Balance = 1000*10u128.pow(12);
 
-           if account_current_panx_balance < tokens_to_validate && caller_locked_balance == 0 {
+           if caller_current_panx_balance < tokens_to_validate && caller_locked_balance == 0 {
 
             panic!(
                 "Caller has less than 1,000 PANX,
@@ -378,7 +379,7 @@ pub mod staking_contract {
            let new_amount_to_give_each_day = (new_locked_balance + (new_locked_balance * actual_staking_percentage)) / 365 ;
 
            //insert the daily amount to caller
-           self.panx_to_give_in_a_day.insert(caller_address,&new_amount_to_give_each_day);
+           self.panx_to_give_in_a_day.insert(caller,&new_amount_to_give_each_day);
 
            //cross contract call to PANX contract to transfer PANX to the caller
            PSP22Ref::transfer(
@@ -476,7 +477,7 @@ pub mod staking_contract {
         pub fn get_days_passed_since_issue(
             &self
         ) -> Balance {
-            
+
             let current_tsp:Balance = (self.env().block_timestamp() / 1000).into();
 
             let days_diff :Balance;

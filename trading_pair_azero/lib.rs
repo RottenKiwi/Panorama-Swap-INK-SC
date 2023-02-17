@@ -219,11 +219,12 @@ pub mod trading_pair_azero {
                 vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
-                    .fire()
+                    .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
                         panic!(
-                            "Error in PSP22 transferFrom cross contract call function, kindly re-adjust your deposited PSP22 tokens."
+                            "Error in PSP22 transferFrom cross contract call function,
+                            kindly re-adjust your deposited PSP22 tokens."
                         )
                     }
                 
@@ -1006,7 +1007,7 @@ pub mod trading_pair_azero {
                 vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
-                    .fire()
+                    .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
                         panic!(
