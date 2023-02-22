@@ -30,6 +30,15 @@ pub mod vesting_contract {
 
     }
 
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub enum VestingProgramErrors {
+        CallerIsNotManager,
+        CallerCollectedTGEAlready,
+        CallerInsufficientLockedTokens,
+        ZeroDaysPassed
+    }
+
     #[ink(event)]
     pub struct AddToVestingProgram {
         added_account:AccountId,
@@ -91,56 +100,55 @@ pub mod vesting_contract {
             &mut self,
             account:AccountId,
             panx_to_give_overall:Balance
-        )  {
+        )  -> Result<(), VestingProgramErrors>  {
 
-           //Making sure caller is the manager (Only manager can add to the vesting program)
-           if self.env().caller() != self.manager {
-           panic!(
-                "The caller is not the manager,
-                cannot add account to vesting program."
-           )
-           }
+            //Making sure caller is the manager (Only manager can add to the vesting program)
+            if self.env().caller() != self.manager {
+                return Err(VestingProgramErrors::CallerIsNotManager);
+            }
 
-           let account_balance = self.balances.get(&account).unwrap_or(0);
+            let account_balance = self.balances.get(&account).unwrap_or(0);
 
-           let new_vesting_panx_amount:Balance;
+            let new_vesting_panx_amount:Balance;
 
-           //calculating the new vesting amount of the caller.
-           match account_balance.checked_add(panx_to_give_overall) {
+            //calculating the new vesting amount of the caller.
+            match account_balance.checked_add(panx_to_give_overall) {
             Some(result) => {
                 new_vesting_panx_amount = result;
             }
             None => {
-                panic!("overflow!");
+                return Err(VestingProgramErrors::Overflow);
             }
             };
 
 
-           self.balances.insert(account, &(new_vesting_panx_amount));
+            self.balances.insert(account, &(new_vesting_panx_amount));
 
-           let panx_amount_to_give_each_day:Balance;
+            let panx_amount_to_give_each_day:Balance;
 
-           //calculating how much PANX tokens the caller needs to get each day.
-           match new_vesting_panx_amount.checked_div(365) {
+            //calculating how much PANX tokens the caller needs to get each day.
+            match new_vesting_panx_amount.checked_div(365) {
             Some(result) => {
                 panx_amount_to_give_each_day = result;
             }
             None => {
-                panic!("overflow!");
+                return Err(VestingProgramErrors::Overflow);
             }
             };
 
-           self.panx_to_give_in_a_day.insert(account,&panx_amount_to_give_each_day);
-           //Allow account to collect TGE
-           self.collected_tge.insert(account,&0);
-           //Insert the current date as last redeem date for account.
-           self.last_redeemed.insert(account, &self.get_current_timestamp());
+            self.panx_to_give_in_a_day.insert(account,&panx_amount_to_give_each_day);
+            //Allow account to collect TGE
+            self.collected_tge.insert(account,&0);
+            //Insert the current date as last redeem date for account.
+            self.last_redeemed.insert(account, &self.get_current_timestamp());
 
-           Self::env().emit_event(AddToVestingProgram{
+            Self::env().emit_event(AddToVestingProgram{
                 added_account:self.env().caller(),
                 total_vesting_amount:panx_to_give_overall,
                 panx_amount_to_give_each_day:panx_amount_to_give_each_day
             });
+
+            Ok(())
 
               
         }
@@ -150,51 +158,48 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn collect_tge_tokens(
             &mut self
-        )  {
+        )  -> Result<(), VestingProgramErrors>  {
 
-           let caller = self.env().caller();
+            let caller = self.env().caller();
 
-           let caller_current_balance:Balance = self.balances.get(&caller).unwrap_or(0);
+            let caller_current_balance:Balance = self.balances.get(&caller).unwrap_or(0);
 
-           //making sure caller didnt redeem tge yet
-           if self.collected_tge.get(&caller).unwrap_or(0) != 0 {
-            panic!(
-                 "The caller already redeemed his TGE alloction, cannot redeem again."
-            )
-            }
-           //making sure caller has more then 0 tokens
-           if caller_current_balance <= 0 {
-            panic!(
-                 "Caller has balance of 0 locked tokens."
-            )
+            //making sure caller didnt redeem tge tokens yet
+            if self.collected_tge.get(&caller).unwrap_or(0) != 0 {
+                return Err(VestingProgramErrors::CallerCollectedTGEAlready);
             }
 
-           let caller_locked_panx_after_tge:Balance;
+            //making sure caller has more then 0 locked tokens
+            if caller_current_balance <= 0 {
+                return Err(VestingProgramErrors::CallerInsufficientLockedTokens);
+            }
 
-           //calculating how callers balance after reducing tge amount (10%)
-           match (caller_current_balance * 900).checked_div(1000) {
+            let caller_locked_panx_after_tge:Balance;
+
+            //calculating how callers balance after reducing tge amount (10%)
+            match (caller_current_balance * 900).checked_div(1000) {
             Some(result) => {
                 caller_locked_panx_after_tge = result;
             }
             None => {
-                panic!("overflow!");
+                return Err(VestingProgramErrors::Overflow);
             }
             };
 
-           let amount_of_panx_to_give:Balance;
+            let amount_of_panx_to_give:Balance;
 
-           //calculating the amount of PANX to give to the caller
-           match caller_current_balance.checked_sub(caller_locked_panx_after_tge) {
+            //calculating the amount of PANX to give to the caller
+            match caller_current_balance.checked_sub(caller_locked_panx_after_tge) {
             Some(result) => {
                 amount_of_panx_to_give = result;
             }
             None => {
-                panic!("overflow!");
+                return Err(VestingProgramErrors::Overflow);
             }
             };
 
-           //transfers the TGE tokens to caller
-           PSP22Ref::transfer(
+            //transfers the TGE tokens to caller
+            PSP22Ref::transfer(
                 &self.panx_psp22,
                 caller,
                 amount_of_panx_to_give,
@@ -206,20 +211,20 @@ pub mod vesting_contract {
                         )
             });
 
-           //deducts from overall vesting amount to give
-           self.balances.insert(caller, &(caller_current_balance - amount_of_panx_to_give));
+            //deducts from overall vesting amount to give
+            self.balances.insert(caller, &(caller_current_balance - amount_of_panx_to_give));
 
-           //make sure to change his collected tge status to 1 to prevent the user to call it again
-           self.collected_tge.insert(caller,&1);
+            //make sure to change his collected tge status to 1 to prevent the user to call it again
+            self.collected_tge.insert(caller,&1);
 
-           Self::env().emit_event(CollectedTGE{
+            Self::env().emit_event(CollectedTGE{
                 caller:caller,
                 panx_given_amount:amount_of_panx_to_give,
                 caller_new_balance:caller_current_balance - amount_of_panx_to_give
             });
 
 
-
+            Ok(())
 
         }
 
@@ -227,7 +232,7 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_redeemable_amount(
             &mut self
-        ) -> Balance {
+        )  -> Result<Balance, VestingProgramErrors> {
 
             
             let caller = self.env().caller();
@@ -248,22 +253,19 @@ pub mod vesting_contract {
                     days_difference = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(VestingProgramErrors::Overflow);
                 }
             };
 
-            //making sure that 24 hours has passed since last redeem
+            //making sure that 24 hours has passed since last redeem 
             if days_difference <= 0 {
-                panic!(
-                     "0 Days passed since the last redeem, kindly wait 24 hours after redeem."
-                )
-                }
+                return Err(VestingProgramErrors::ZeroDaysPassed);
+            }
+
             //making sure that caller has more then 0 PANX to redeem
             if caller_total_vesting_amount <= 0 {
-                panic!(
-                     "Caller has balance of 0 locked tokens. "
-                )
-                }
+                return Err(VestingProgramErrors::CallerInsufficientLockedTokens);
+            }
 
 
             let mut redeemable_amount:Balance;
@@ -274,7 +276,7 @@ pub mod vesting_contract {
                     redeemable_amount = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(VestingProgramErrors::Overflow);
                 }
             };
 
@@ -285,7 +287,7 @@ pub mod vesting_contract {
                 redeemable_amount = caller_total_vesting_amount
             }
 
-            redeemable_amount
+            Ok(redeemable_amount)
 
             
 
@@ -295,7 +297,7 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn redeem_redeemable_amount(
             &mut self
-        ) {
+        )  -> Result<(), VestingProgramErrors> {
 
             
             let caller = self.env().caller();
@@ -304,7 +306,7 @@ pub mod vesting_contract {
 
             let caller_total_vesting_amount = self.get_account_total_vesting_amount(caller);
 
-            let mut redeemable_amount = self.get_redeemable_amount();
+            let mut redeemable_amount = self.get_redeemable_amount().unwrap();
 
             //make sure to set new date of reedem for the caller.
             self.last_redeemed.insert(caller,&current_date_in_tsp);
@@ -317,7 +319,7 @@ pub mod vesting_contract {
                     caller_new_vesting_amount = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(VestingProgramErrors::Overflow);
                 }
             };
 
@@ -343,6 +345,8 @@ pub mod vesting_contract {
                     caller_new_balance:caller_total_vesting_amount - redeemable_amount
             });
 
+            Ok(())
+
 
         }
 
@@ -352,7 +356,7 @@ pub mod vesting_contract {
         pub fn get_account_total_vesting_amount(
             &mut self,
             account:AccountId
-        )-> Balance  {
+        )   -> Balance  {
         
            let account_balance:Balance = self.balances.get(&account).unwrap_or(0);
            account_balance
@@ -364,7 +368,7 @@ pub mod vesting_contract {
         pub fn get_account_last_redeem(
             &mut self,
             account:AccountId
-        )->Balance  {
+        )   -> Balance  {
         
            let time_stamp = self.last_redeemed.get(&account).unwrap_or(0);
            time_stamp
@@ -375,7 +379,7 @@ pub mod vesting_contract {
         pub fn get_amount_to_give_each_day_to_account(
             &mut self,
             account:AccountId
-        )-> Balance  {
+        )   -> Balance  {
         
            let account_balance:Balance = self.panx_to_give_in_a_day.get(&account).unwrap_or(0);
            account_balance
@@ -385,7 +389,7 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_vesting_contract_panx_reserve(
             &self
-        )-> Balance  {
+        )   -> Balance  {
         
             let vesting_panx_reserve = PSP22Ref::balance_of(
                     &self.panx_psp22,
@@ -400,10 +404,9 @@ pub mod vesting_contract {
         pub fn user_tge_collection_status(
             &mut self,
             account:AccountId
-        )->Balance  {
+        )   ->Balance  {
 
             let tge_status = self.collected_tge.get(account).unwrap_or(0);
-
             tge_status
 
 
@@ -413,7 +416,7 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_started_date(
             &self
-        ) -> Balance {
+        )   -> Balance {
 
             let timestamp = self.started_date_in_timestamp;
 
@@ -425,10 +428,9 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_current_timestamp(
             &self
-        ) -> Balance {
+        )   -> Balance {
 
             let bts = self.env().block_timestamp() / 1000;
-
             bts.into()
 
         }
@@ -439,7 +441,7 @@ pub mod vesting_contract {
         #[ink(message)]
         pub fn get_days_passed_since_issue(
             &self
-        ) -> Balance {
+        )   -> Result<Balance, VestingProgramErrors>{
             
             let current_tsp:Balance = (self.env().block_timestamp() / 1000).into();
 
@@ -450,11 +452,11 @@ pub mod vesting_contract {
                     days_diff = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(VestingProgramErrors::Overflow);
                 }
             };
 
-            days_diff
+            Ok((days_diff))
         }
  
     }

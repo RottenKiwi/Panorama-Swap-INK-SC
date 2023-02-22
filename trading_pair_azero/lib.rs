@@ -36,6 +36,24 @@ pub mod trading_pair_azero {
 
     }
 
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub enum TradingPairErrors {
+        CallerInsufficientPSP22Balance,
+        NotEnoughAllowance,
+        Overflow,
+        ZeroSharesGiven,
+        SlippageTolerance,
+        PSP22TransferFromFailed,
+        PSP22TransferFailed,
+        A0TransferFailed,
+        CallerInsufficientLPBalance,
+        ContractOutOfA0,
+        ContractOutOfPSP22,
+        NotEnoughOwnerLPAllowance
+
+    }
+
     #[ink(event)]
     pub struct LiquidityPoolProvision {
         provider:AccountId,
@@ -110,7 +128,7 @@ pub mod trading_pair_azero {
             psp22_deposit_amount:Balance,
             excpeted_lp_tokens:Balance,
             slippage:Balance
-        )  {
+        )  -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -122,10 +140,7 @@ pub mod trading_pair_azero {
 
             //making sure that caller current PSP22 balance is greater than the deposit amount.
             if caller_current_balance < psp22_deposit_amount {
-                panic!(
-                    "Caller does not have enough PSP22 tokens to provide to pool,
-                    kindly lower the amount of deposited PSP22 tokens."
-                )
+                return Err(TradingPairErrors::CallerInsufficientPSP22Balance);
             } 
 
             let contract_allowance:Balance = PSP22Ref::allowance(
@@ -137,10 +152,7 @@ pub mod trading_pair_azero {
 
             //making sure that trading pair contract has enough allowance.
             if contract_allowance < psp22_deposit_amount {
-                panic!(
-                    "Trading pair does not have enough allowance to transact,
-                    make sure you approved the amount of deposited PSP22 tokens."
-                )
+                return Err(TradingPairErrors::NotEnoughAllowance);
             }
 
 
@@ -168,7 +180,7 @@ pub mod trading_pair_azero {
                         shares = result;
                     }
                     None => {
-                        panic!("overflow!");
+                        return Err(TradingPairErrors::Overflow);
                     }
                 };
              
@@ -176,22 +188,16 @@ pub mod trading_pair_azero {
 
             //validating that shares is greater than 0
             if shares <= 0 {
-                panic!(
-                    "Expected given liquidity pool SHARES are equal to 0,
-                    cannot proceed with liquidity pool provision."
-                )
+                return Err(TradingPairErrors::ZeroSharesGiven);
             }
 
             //function to return the percentage diff between the expected lp token
             //that was shown in the front-end and the final shares amount.
-            let percentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
+            let percentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares).unwrap();
 
             //validating slippage    
             if percentage_diff > slippage.try_into().unwrap() {
-                panic!(
-                    "The percentage difference is bigger than the given slippage,
-                    kindly re-adjust the slippage settings."
-                )
+                return Err(TradingPairErrors::SlippageTolerance);
             }
 
 
@@ -205,7 +211,7 @@ pub mod trading_pair_azero {
                     new_caller_shares = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -222,10 +228,7 @@ pub mod trading_pair_azero {
                     .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
-                        panic!(
-                            "Error in PSP22 transferFrom cross contract call function,
-                            kindly re-adjust your deposited PSP22 tokens."
-                        )
+                        return Err(TradingPairErrors::PSP22TransferFromFailed);
                     }
                 
                     
@@ -239,7 +242,9 @@ pub mod trading_pair_azero {
                 a0_deposited_amount:self.env().transferred_value(),
                 psp22_deposited_amount:psp22_deposit_amount,
                 shares_given:shares
-            })
+            });
+
+            Ok(())
 
 
 
@@ -250,7 +255,7 @@ pub mod trading_pair_azero {
        pub fn withdraw_specific_amount(
             &mut self,
             shares: Balance
-        )  {
+        )  -> Result<(), TradingPairErrors>  {
           
             //caller address 
             let caller = self.env().caller();
@@ -260,17 +265,14 @@ pub mod trading_pair_azero {
 
             //validating that the caller has more than the given number of shares.
             if caller_shares < shares {
-                panic!(
-                    "Caller does not have enough liquidity pool SHARES to withdraw,
-                    kindly lower the liquidity pool SHARES withdraw amount."
-                )
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
             }
 
             //amount of PSP22 to give to the caller
-            let psp22_amount_to_give:Balance = self.get_psp22_withdraw_tokens_amount(shares);
+            let psp22_amount_to_give = self.get_psp22_withdraw_tokens_amount(shares).unwrap();
 
             //amount of A0 to give to the caller
-            let a0_amount_to_give:Balance = self.get_a0_withdraw_tokens_amount(shares);
+            let a0_amount_to_give = self.get_a0_withdraw_tokens_amount(shares).unwrap();
 
             let new_caller_lp_shares:Balance;
 
@@ -280,7 +282,7 @@ pub mod trading_pair_azero {
                     new_caller_lp_shares = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
            
@@ -290,20 +292,16 @@ pub mod trading_pair_azero {
                 caller,
                 psp22_amount_to_give,
                 vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Failed to transfer PSP22 tokens to caller : {:?}",
-                            error
-                        )
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
             });
 
             //function to transfer A0 to the caller
             if self.env().transfer(caller, a0_amount_to_give).is_err() {
-               panic!(
-                   "requested transfer failed. this can be the case if the contract does not\
-                    have sufficient free funds or if the transfer would have brought the\
-                    contract's balance below minimum balance."
-               )
+                return Err(TradingPairErrors::A0TransferFailed);
             }
 
             //reducing caller LP token balance
@@ -319,6 +317,8 @@ pub mod trading_pair_azero {
                 new_shares_balance:new_caller_lp_shares
             });
 
+            Ok(())
+
 
 
        }
@@ -329,7 +329,7 @@ pub mod trading_pair_azero {
         pub fn get_withdraw_tokens_amount(
             &self,
             shares_amount: Balance
-        ) -> (Balance,Balance) {
+        ) -> Result<(Balance,Balance), TradingPairErrors> {
 
             let amount_of_a0_to_give:Balance;
 
@@ -339,7 +339,7 @@ pub mod trading_pair_azero {
                     amount_of_a0_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -351,12 +351,13 @@ pub mod trading_pair_azero {
                     amount_of_psp22_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
         
+            Ok((amount_of_a0_to_give,amount_of_psp22_to_give))
 
-            (amount_of_a0_to_give,amount_of_psp22_to_give)
+
         
         }
 
@@ -366,7 +367,7 @@ pub mod trading_pair_azero {
         pub fn get_psp22_withdraw_tokens_amount(
             &self,
             shares_amount: Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
             let amount_of_psp22_to_give:Balance;
 
@@ -376,11 +377,11 @@ pub mod trading_pair_azero {
                     amount_of_psp22_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            amount_of_psp22_to_give
+            Ok(amount_of_psp22_to_give)
         
         }
 
@@ -389,7 +390,7 @@ pub mod trading_pair_azero {
         pub fn get_a0_withdraw_tokens_amount(
             &self,
             shares_amount: Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
 
             let amount_of_a0_to_give:Balance;
@@ -400,11 +401,11 @@ pub mod trading_pair_azero {
                     amount_of_a0_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
-            amount_of_a0_to_give
+            Ok(amount_of_a0_to_give)
         
         }
 
@@ -414,7 +415,7 @@ pub mod trading_pair_azero {
         pub fn get_account_locked_tokens(
             &self,
             account_id:AccountId
-        ) -> (Balance,Balance) {
+        ) -> Result<(Balance,Balance), TradingPairErrors> {
            
             //account address
             let caller = account_id;
@@ -428,7 +429,7 @@ pub mod trading_pair_azero {
 
             if caller_shares <= 0 {
 
-                return (amount_of_psp22_to_give,amount_of_a0_to_give)
+                return Ok((amount_of_psp22_to_give,amount_of_a0_to_give))
                  
             }
 
@@ -439,7 +440,7 @@ pub mod trading_pair_azero {
                     amount_of_a0_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -449,11 +450,11 @@ pub mod trading_pair_azero {
                     amount_of_psp22_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
            
-            (amount_of_psp22_to_give,amount_of_a0_to_give)
+            Ok((amount_of_psp22_to_give,amount_of_a0_to_give))
 
             
         }
@@ -463,7 +464,7 @@ pub mod trading_pair_azero {
         pub fn get_expected_lp_token_amount(
             &self,
             a0_deposit_amount:Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
 
             let mut shares:Balance = 0;
@@ -485,13 +486,13 @@ pub mod trading_pair_azero {
                     shares = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
                 };
 
             }
 
-            shares
+            Ok(shares)
             
         }
  
@@ -500,11 +501,11 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_price_for_one_psp22(
             &self
-        )-> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
-            let amount_out = self.get_est_price_psp22_to_a0(1u128 * (10u128.pow(12)));
+            let amount_out = self.get_est_price_psp22_to_a0(1u128 * (10u128.pow(12))).unwrap();
 
-            amount_out
+            Ok(amount_out)
         }
 
         ///function to get the amount of A0 the caller will get for given PSP22 amount.
@@ -512,7 +513,7 @@ pub mod trading_pair_azero {
         pub fn get_est_price_psp22_to_a0(
             &self,
             psp22_amount_in:Balance
-        )-> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -530,7 +531,7 @@ pub mod trading_pair_azero {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -542,7 +543,7 @@ pub mod trading_pair_azero {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -559,7 +560,7 @@ pub mod trading_pair_azero {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };   
                 }
@@ -572,7 +573,7 @@ pub mod trading_pair_azero {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };  
                 }
@@ -588,11 +589,11 @@ pub mod trading_pair_azero {
                     a0_amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            return a0_amount_out  
+            Ok(a0_amount_out)  
 
         }
 
@@ -601,7 +602,7 @@ pub mod trading_pair_azero {
         pub fn get_est_price_a0_to_psp22_for_swap(
             &self,
             a0_amout_in:Balance
-        ) -> Balance { 
+        ) -> Result<Balance, TradingPairErrors> { 
 
             let caller = self.env().caller();
 
@@ -613,7 +614,7 @@ pub mod trading_pair_azero {
                     a0_reserve_before = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -630,7 +631,7 @@ pub mod trading_pair_azero {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -643,7 +644,7 @@ pub mod trading_pair_azero {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -660,7 +661,7 @@ pub mod trading_pair_azero {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
                 }
@@ -673,7 +674,7 @@ pub mod trading_pair_azero {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
                 }
@@ -688,11 +689,11 @@ pub mod trading_pair_azero {
                     amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            return amount_out  
+            Ok(amount_out)  
 
         }
 
@@ -701,7 +702,7 @@ pub mod trading_pair_azero {
         pub fn get_est_price_a0_to_psp22(
             &self,
             a0_amout_in:Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -718,7 +719,7 @@ pub mod trading_pair_azero {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -730,7 +731,7 @@ pub mod trading_pair_azero {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -747,7 +748,7 @@ pub mod trading_pair_azero {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
                 }
@@ -760,7 +761,7 @@ pub mod trading_pair_azero {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
                 }
@@ -774,11 +775,11 @@ pub mod trading_pair_azero {
                     amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
-            return amount_out  
+            Ok(amount_out)  
 
         }
 
@@ -787,7 +788,7 @@ pub mod trading_pair_azero {
         pub fn get_price_impact_psp22_to_a0(
             &self,
             psp22_amount_in:Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
 
             let actual_fee:Balance;
 
@@ -797,12 +798,12 @@ pub mod trading_pair_azero {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
             //fetching the amount of A0 the caller WOULD get if he would swap
-            let current_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_in);
+            let current_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_in).unwrap();
 
             let amount_in_with_fees:Balance;
 
@@ -812,7 +813,7 @@ pub mod trading_pair_azero {
                     amount_in_with_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
     
@@ -824,11 +825,11 @@ pub mod trading_pair_azero {
                     future_ao_amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
-            future_ao_amount_out
+            Ok(future_ao_amount_out)
     
         }
         
@@ -837,7 +838,7 @@ pub mod trading_pair_azero {
         pub fn get_price_impact_a0_to_psp22(
             &mut self,
             a0_amount_in:Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors> {
             
             let actual_fee:Balance;
 
@@ -847,11 +848,11 @@ pub mod trading_pair_azero {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            let current_amount_out = self.get_est_price_a0_to_psp22(a0_amount_in);
+            let current_amount_out = self.get_est_price_a0_to_psp22(a0_amount_in).unwrap();
 
             let amount_in_with_fees:Balance;
 
@@ -861,7 +862,7 @@ pub mod trading_pair_azero {
                     amount_in_with_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -873,11 +874,11 @@ pub mod trading_pair_azero {
                     future_psp22_amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            future_psp22_amount_out
+            Ok(future_psp22_amount_out)
 
 
         }
@@ -890,7 +891,7 @@ pub mod trading_pair_azero {
             psp22_amount_to_transfer: Balance,
             a0_amount_to_validate: Balance,
             slippage: Balance
-        ) {
+        ) -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -898,10 +899,7 @@ pub mod trading_pair_azero {
 
             //making sure that the contract has more than 0 A0 coins.
             if contract_a0_current_balance <= 0 {
-                panic!(
-                    "Contract A0 balance is 0,
-                    cannot prefrom swaps with empty A0 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfA0);
             }
 
             let contract_psp22_current_balance:Balance = PSP22Ref::balance_of(
@@ -911,10 +909,7 @@ pub mod trading_pair_azero {
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_current_balance <= 0 {
-                panic!(
-                    "Contract PSP22 balance is 0,
-                    cannot prefrom swaps with empty PSP22 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfPSP22);
             }
 
             let caller_current_balance:Balance = PSP22Ref::balance_of(
@@ -924,10 +919,7 @@ pub mod trading_pair_azero {
 
             //making sure that the caller has more or equal the amount he wishes to transfers.
             if caller_current_balance < psp22_amount_to_transfer {
-                panic!(
-                    "Caller balance is lower than the amount of PSP22 token he wishes to trasnfer,
-                    kindly lower your deposited PSP22 tokens amount."
-                )
+                return Err(TradingPairErrors::CallerInsufficientPSP22Balance);
             }
             
             let contract_allowance:Balance = PSP22Ref::allowance(
@@ -938,27 +930,23 @@ pub mod trading_pair_azero {
             
             //making sure that the trading pair contract has enough allowance.
             if contract_allowance < psp22_amount_to_transfer {
-                panic!(
-                    "Trading pair does not have enough allowance to transact,
-                    make sure you approved the amount of deposited PSP22 tokens before swapping."
-                )
+                return Err(TradingPairErrors::NotEnoughAllowance);
             }
             
             //the amount of A0 to give to the caller before traders fee.
-            let a0_amount_out_for_caller_before_traders_fee:Balance = self.get_est_price_psp22_to_a0(psp22_amount_to_transfer);
+            let a0_amount_out_for_caller_before_traders_fee:Balance = self.get_est_price_psp22_to_a0(
+                psp22_amount_to_transfer)
+                .unwrap();
 
             //percentage dif between given A0 amount (from front-end) and acutal final AO amount
             let percentage_diff:Balance = self.check_diffrenece(
                 a0_amount_to_validate,
-                a0_amount_out_for_caller_before_traders_fee
-            );
+                a0_amount_out_for_caller_before_traders_fee)
+                .unwrap();
 
             //validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
-                panic!(
-                    "The percentage difference is bigger than the given slippage,
-                    kindly re-adjust the slippage settings."
-                )
+                return Err(TradingPairErrors::SlippageTolerance);
             }
 
             let actual_a0_amount_out_for_caller:Balance;
@@ -971,7 +959,7 @@ pub mod trading_pair_azero {
                     a0_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -981,7 +969,7 @@ pub mod trading_pair_azero {
                     actual_a0_amount_out_for_caller = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -994,7 +982,7 @@ pub mod trading_pair_azero {
                     psp22_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1010,10 +998,7 @@ pub mod trading_pair_azero {
                     .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
-                        panic!(
-                            "Error in PSP22 transferFrom cross contract call function,
-                            kindly re-adjust your deposited PSP22 tokens."
-                        )
+                        return Err(TradingPairErrors::PSP22TransferFromFailed);
             }
 
             //cross contract call to PSP22 contract to transfer PSP22 to the vault
@@ -1035,11 +1020,7 @@ pub mod trading_pair_azero {
                 caller,
                 actual_a0_amount_out_for_caller)
                 .is_err() {
-                    panic!(
-                        "requested transfer failed. this can be the case if the contract does not\
-                        have sufficient free funds or if the transfer would have brought the\
-                        contract's balance below minimum balance."
-                    )
+                    return Err(TradingPairErrors::A0TransferFailed);
             }
 
             //function to transfer A0 to the vault.
@@ -1047,11 +1028,7 @@ pub mod trading_pair_azero {
                 self.vault,
                 a0_amount_out_for_vault)
                 .is_err() {
-                    panic!(
-                        "requested transfer failed. this can be the case if the contract does not\
-                        have sufficient free funds or if the transfer would have brought the\
-                        contract's balance below minimum balance."
-                    )
+                    return Err(TradingPairErrors::A0TransferFailed);
             }
 
             //increase num of trans
@@ -1063,6 +1040,8 @@ pub mod trading_pair_azero {
                 a0_given_to_vault:a0_amount_out_for_vault
             });
 
+            Ok(())
+
 
         }
 
@@ -1073,7 +1052,7 @@ pub mod trading_pair_azero {
             &mut self,
             psp22_amount_to_validate: Balance,
             slippage: Balance
-        ) {
+        ) -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -1081,9 +1060,7 @@ pub mod trading_pair_azero {
 
             //making sure that the contract has more than 0 A0 coins.
             if contract_a0_current_balance <= 0 {
-                panic!(
-                    "Contract A0 balance is 0, cannot prefrom swaps with empty A0 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfA0);
             }
 
             let contract_psp22_current_balance:Balance = PSP22Ref::balance_of(
@@ -1093,22 +1070,23 @@ pub mod trading_pair_azero {
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_current_balance <= 0 {
-                panic!(
-                    "Contract PSP22 balance is 0, cannot prefrom swaps with empty PSP22 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfPSP22);
             }
             
             //amount of PSP22 tokens to give to caller before traders fee.
-            let psp22_amount_out_for_caller_before_traders_fee:Balance = self.get_est_price_a0_to_psp22_for_swap(self.env().transferred_value());
+            let psp22_amount_out_for_caller_before_traders_fee:Balance = self.get_est_price_a0_to_psp22_for_swap(
+                self.env().transferred_value())
+                .unwrap();
 
             //percentage dif between given PSP22 amount (from front-end) and the acutal final PSP22 amount.
-            let percentage_diff:Balance = self.check_diffrenece(psp22_amount_to_validate,psp22_amount_out_for_caller_before_traders_fee);
+            let percentage_diff:Balance = self.check_diffrenece(
+                psp22_amount_to_validate,
+                psp22_amount_out_for_caller_before_traders_fee)
+                .unwrap();
 
             //validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
-                panic!(
-                    "The percentage difference is bigger than the given slippage, kindly re-adjust the slippage settings."
-                )
+                return Err(TradingPairErrors::SlippageTolerance);
             }
 
 
@@ -1122,7 +1100,7 @@ pub mod trading_pair_azero {
                     psp22_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1133,7 +1111,7 @@ pub mod trading_pair_azero {
                     actual_psp22_amount_out_for_caller = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1145,7 +1123,7 @@ pub mod trading_pair_azero {
                     a0_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1180,11 +1158,7 @@ pub mod trading_pair_azero {
                 self.vault,
                 a0_amount_out_for_vault)
                 .is_err() {
-                    panic!(
-                        "requested transfer failed. this can be the case if the contract does not\
-                        have sufficient free funds or if the transfer would have brought the\
-                        contract's balance below minimum balance."
-                    )
+                    return Err(TradingPairErrors::A0TransferFailed);
             }
 
 
@@ -1198,7 +1172,7 @@ pub mod trading_pair_azero {
                 psp22_given_to_vault:psp22_amount_out_for_vault
             });
 
-            
+            Ok(())
             
         }
 
@@ -1209,7 +1183,7 @@ pub mod trading_pair_azero {
             &mut self,
             recipient:AccountId,
             shares_to_transfer: Balance
-        ) {
+        ) -> Result<(), TradingPairErrors>  {
 
             let caller = self.env().caller();
 
@@ -1218,10 +1192,7 @@ pub mod trading_pair_azero {
             let recipient_shares:Balance = self.balances.get(&recipient).unwrap_or(0);
         
             if caller_shares < shares_to_transfer {
-                panic!(
-                    "Cannot transfer LP shares to recipient,
-                    caller balance is lower than the requested transfer amount."
-                )
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
             }
 
             let new_caller_lp_balance:Balance;
@@ -1232,7 +1203,7 @@ pub mod trading_pair_azero {
                     new_caller_lp_balance = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1244,13 +1215,15 @@ pub mod trading_pair_azero {
                     new_recipient_lp_balance = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
             self.balances.insert(caller, &(new_caller_lp_balance));
  
             self.balances.insert(recipient, &(new_recipient_lp_balance));
+
+            Ok(())
 
 
         }
@@ -1261,26 +1234,24 @@ pub mod trading_pair_azero {
             &mut self,
             spender:AccountId,
             shares_to_approve: Balance
-        )  {
+        ) -> Result<(), TradingPairErrors>  {
 
            let caller = self.env().caller();
 
            let caller_shares:Balance = self.balances.get(&caller).unwrap_or(0);
 
            if caller_shares < shares_to_approve {
-            panic!(
-                "Cannot approve LP tokens, owner LP token balance is lower than the given shares to approve."
-            )
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
            }
 
            if shares_to_approve >= u128::MAX {
-            panic!(
-                "overflow!"
-            )
+                return Err(TradingPairErrors::Overflow);
            }
 
 
            self.lp_tokens_allowances.insert((caller,spender), &(shares_to_approve));
+
+           Ok(())
 
         }
 
@@ -1291,7 +1262,7 @@ pub mod trading_pair_azero {
             owner:AccountId,
             to:AccountId,
             shares_to_transfer: Balance
-        )  {
+        ) -> Result<(), TradingPairErrors>  {
 
            let spender = self.env().caller();
 
@@ -1302,17 +1273,11 @@ pub mod trading_pair_azero {
            let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
 
            if allowance < shares_to_transfer {
-            panic!(
-                "Cannot transfer LP shares to spender,
-                allowance is lower than the requested transfer amount."
-            )
+                return Err(TradingPairErrors::NotEnoughOwnerLPAllowance);
            }
 
            if owner_shares < shares_to_transfer {
-            panic!(
-                "Cannot transfer LP shares to spender,
-                caller balance is lower than the requested transfer amount."
-            )
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
            }
 
            let new_owner_lp_balance:Balance;
@@ -1323,7 +1288,7 @@ pub mod trading_pair_azero {
                    new_owner_lp_balance = result;
                }
                None => {
-                   panic!("overflow!");
+                return Err(TradingPairErrors::Overflow);
                }
            };
 
@@ -1335,7 +1300,7 @@ pub mod trading_pair_azero {
                 new_to_lp_balance = result;
                }
                None => {
-                   panic!("overflow!");
+                return Err(TradingPairErrors::Overflow);
                }
            };
 
@@ -1347,7 +1312,7 @@ pub mod trading_pair_azero {
                     new_allowance = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1356,6 +1321,8 @@ pub mod trading_pair_azero {
            self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
 
            self.balances.insert(to, &(new_to_lp_balance));
+
+           Ok(())
     
          
         }
@@ -1366,7 +1333,7 @@ pub mod trading_pair_azero {
             &self,
             owner: AccountId,
             spender: AccountId
-        ) -> Balance {
+        ) -> Balance   {
 
             self.lp_tokens_allowances.get(&(owner,spender)).unwrap_or(0)
 
@@ -1388,8 +1355,9 @@ pub mod trading_pair_azero {
             &self
         ) -> Balance {
 
-            self.get_est_price_psp22_to_a0(1u128 * 10u128.pow(12))    
+            let current_price = self.get_est_price_psp22_to_a0(1u128 * 10u128.pow(12)).unwrap();
 
+            current_price
         }
 
         ///function to get total supply of LP shares
@@ -1472,7 +1440,7 @@ pub mod trading_pair_azero {
             &mut self,
             value1: Balance,
             value2: Balance
-        ) -> Balance {
+        ) -> Result<Balance, TradingPairErrors>  {
 
             let absolute_difference = value1.abs_diff(value2);
 
@@ -1491,7 +1459,7 @@ pub mod trading_pair_azero {
                 }
             };
 
-            percentage_difference
+            return Err(TradingPairErrors::Overflow);
             
         }
 

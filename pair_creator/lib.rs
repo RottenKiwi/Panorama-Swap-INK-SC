@@ -5,6 +5,7 @@
 pub mod pair_creator {
 
 
+    use ink::LangError;
     use trading_pair_psp22::TradingPairPsp22Ref;
     use trading_pair_azero::TradingPairAzeroRef;
 
@@ -12,7 +13,6 @@ pub mod pair_creator {
     #[ink(storage)]
     pub struct PairCreator {
     
-
     }
 
     #[ink(event)]
@@ -49,7 +49,7 @@ pub mod pair_creator {
             fee:Balance,
             panx_contract:AccountId,
             vault_address:AccountId
-        ) -> AccountId {
+        )   -> Result<AccountId, LangError> {
 
             
             let salt = version.to_le_bytes();
@@ -72,7 +72,7 @@ pub mod pair_creator {
 
             let new_pair_address = trading_pair.expect("failed at instantiating the A0 trading pair").get_account_id();
 
-            new_pair_address
+            Ok(new_pair_address)
         
  
         }
@@ -87,7 +87,7 @@ pub mod pair_creator {
             fee:Balance,
             panx_contract:AccountId,
             vault_address:AccountId
-        ) -> AccountId {
+        )   -> Result<AccountId, LangError> {
 
             
             let salt = version.to_le_bytes();
@@ -111,7 +111,7 @@ pub mod pair_creator {
 
             let new_pair_address = trading_pair.expect("failed at instantiating the PSP22 trading pair").get_account_id();
 
-            new_pair_address
+            Ok(new_pair_address)
         
  
         }

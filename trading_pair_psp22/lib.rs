@@ -39,6 +39,26 @@ pub mod trading_pair_psp22 {
         traders_fee:Balance
     }
 
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub enum TradingPairErrors {
+        CallerInsufficientPSP1Balance,
+        CallerInsufficientPSP2Balance,
+        NotEnoughPSP1Allowance,
+        NotEnoughPSP2Allowance,
+        Overflow,
+        ZeroSharesGiven,
+        SlippageTolerance,
+        PSP1TransferFromFailed,
+        PSP2TransferFromFailed,
+        A0TransferFailed,
+        CallerInsufficientLPBalance,
+        ContractOutOfPSP1,
+        ContractOutOfPSP2,
+        NotEnoughOwnerLPAllowance
+
+    }
+
     #[ink(event)]
     pub struct LiquidityPoolProvision {
         from:AccountId,
@@ -116,7 +136,7 @@ pub mod trading_pair_psp22 {
         psp22_token2_deposit_amount:Balance,
         excpeted_lp_tokens:Balance,
         slippage:Balance
-        )  {
+        )  -> Result<(), TradingPairErrors>  {
 
             let caller = self.env().caller();
 
@@ -129,10 +149,7 @@ pub mod trading_pair_psp22 {
 
             //making sure that caller current PSP22 1 token balance is greater than the deposit amount.
             if caller_current_balance_token1 < psp22_token1_deposit_amount {
-                panic!(
-                    "Caller does not have enough PSP22_1 tokens to provide to pool,
-                    kindly lower the amount of deposited PSP22_1 tokens."
-                )
+                return Err(TradingPairErrors::CallerInsufficientPSP1Balance);
             }
 
             let caller_current_balance_token2 = PSP22Ref::balance_of(
@@ -142,10 +159,7 @@ pub mod trading_pair_psp22 {
 
             //making sure that caller current PSP22 2 token balance is greater than the deposit amount.
             if caller_current_balance_token2 < psp22_token2_deposit_amount {
-                panic!(
-                    "Caller does not have enough PSP22_2 tokens to provide to pool,
-                    kindly lower the amount of deposited PSP22_2 tokens."
-                )
+                return Err(TradingPairErrors::CallerInsufficientPSP2Balance);
             }
 
             let contract_token1_allowance = PSP22Ref::allowance(
@@ -156,10 +170,7 @@ pub mod trading_pair_psp22 {
 
             //making sure that the trading pair contract has enough PSP22 1 token allowance.
             if contract_token1_allowance < psp22_token1_deposit_amount {
-                panic!(
-                    "Trading pair does not have enough allowance to transact,
-                    make sure you approved the amount of deposited PSP22_1 tokens."
-                )
+                return Err(TradingPairErrors::NotEnoughPSP1Allowance);
             }
 
             let contract_token2_allowance = PSP22Ref::allowance(
@@ -170,10 +181,7 @@ pub mod trading_pair_psp22 {
 
            //making sure that the trading pair contract has enough PSP22 2 token allowance.
            if contract_token2_allowance < psp22_token2_deposit_amount {
-                panic!(
-                    "Trading pair does not have enough allowance to transact,
-                    make sure you approved the amount of deposited PSP22_2 tokens."
-                )
+                return Err(TradingPairErrors::NotEnoughPSP2Allowance);        
             }
 
            let contract_psp22_1_starting_balance = PSP22Ref::balance_of(
@@ -193,10 +201,7 @@ pub mod trading_pair_psp22 {
                     .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
-                        panic!(
-                            "Error in PSP22_1 transferFrom cross contract call function,
-                            kindly re-adjust your deposited PSP22_1 tokens amount."
-                        )
+                        return Err(TradingPairErrors::PSP1TransferFromFailed);
             }
 
             let contract_psp22_1_closing_balance = PSP22Ref::balance_of(
@@ -212,7 +217,7 @@ pub mod trading_pair_psp22 {
                     actual_psp22_1_deposit_amount = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -233,10 +238,7 @@ pub mod trading_pair_psp22 {
                     .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
-                        panic!(
-                            "Error in PSP22_2 transferFrom cross contract call function,
-                            kindly re-adjust your deposited PSP22_2 tokens amount."
-                        )
+                        return Err(TradingPairErrors::PSP2TransferFromFailed);
            }
 
             let contract_psp22_2_closing_balance = PSP22Ref::balance_of(
@@ -252,7 +254,7 @@ pub mod trading_pair_psp22 {
                     actual_psp22_2_deposit_amount = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -273,7 +275,7 @@ pub mod trading_pair_psp22 {
                         shares = result;
                     }
                     None => {
-                        panic!("overflow!");
+                        return Err(TradingPairErrors::Overflow);
                     }
                 };
 
@@ -307,15 +309,14 @@ pub mod trading_pair_psp22 {
                             )
                 });
 
-                panic!(
-                    "Expected given liquidity pool SHARES are equal to 0,
-                    cannot proceed with liquidity pool provision."
-                )
+                return Err(TradingPairErrors::ZeroSharesGiven);
 
             }
 
             //function to return the percentage diff between the expected lp token that was shown in the front-end and the final shares amount.
-            let percentage_diff = self.check_diffrenece(excpeted_lp_tokens,shares);
+            let percentage_diff = self.check_diffrenece(
+                excpeted_lp_tokens,shares)
+                .unwrap();
 
             //validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
@@ -345,10 +346,7 @@ pub mod trading_pair_psp22 {
                 });
 
 
-                panic!(
-                    "The percentage difference is bigger than the given slippage,
-                    kindly re-adjust the slippage settings."
-                )
+                return Err(TradingPairErrors::SlippageTolerance);
 
             }
 
@@ -364,7 +362,7 @@ pub mod trading_pair_psp22 {
                      new_caller_shares = result;
                  }
                  None => {
-                     panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                  }
 
             };
@@ -381,7 +379,10 @@ pub mod trading_pair_psp22 {
                 psp22_1_deposited_amount:actual_psp22_1_deposit_amount,
                 psp22_2_deposited_amount:actual_psp22_2_deposit_amount,
                 shares_given:shares
-            })
+            });
+
+            
+            Ok(())
 
 
 
@@ -392,7 +393,7 @@ pub mod trading_pair_psp22 {
        pub fn withdraw_specific_amount(
             &mut self,
             shares: Balance
-        )  {
+        )  -> Result<(), TradingPairErrors>   {
           
             //caller address
             let caller = self.env().caller();
@@ -402,16 +403,13 @@ pub mod trading_pair_psp22 {
 
             //Validating that the caller has the given number of shares.
             if caller_shares < shares {
-                panic!(
-                    "Caller does not have enough liquidity pool SHARES to withdraw,
-                    kindly lower the liquidity pool SHARES withdraw amount."
-                )
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
             }
 
             //Amount of psp22 token1 to give to the caller
-            let psp22_token1_amount_to_give = self.get_psp22_token1_withdraw_tokens_amount(shares);
+            let psp22_token1_amount_to_give = self.get_psp22_token1_withdraw_tokens_amount(shares).unwrap();
             //Amount of psp22 token1 to give to the caller
-            let psp22_token2_amount_to_give = self.get_psp22_token2_withdraw_tokens_amount(shares);
+            let psp22_token2_amount_to_give = self.get_psp22_token2_withdraw_tokens_amount(shares).unwrap();
 
             let new_caller_lp_shares:Balance;
 
@@ -422,7 +420,7 @@ pub mod trading_pair_psp22 {
                     new_caller_lp_shares = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
 
             };
@@ -466,7 +464,7 @@ pub mod trading_pair_psp22 {
                 new_shares_balance:new_caller_lp_shares
             });
 
-
+            Ok(())
 
 
        }
@@ -477,7 +475,7 @@ pub mod trading_pair_psp22 {
         pub fn get_withdraw_tokens_amount(
             &self,
             share_amount: Balance
-        ) -> (Balance,Balance) {
+        )  -> Result<(Balance,Balance), TradingPairErrors> {
 
             
             let mut amount_of_psp22_token1_to_give:Balance;
@@ -488,7 +486,7 @@ pub mod trading_pair_psp22 {
                     amount_of_psp22_token1_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -500,12 +498,12 @@ pub mod trading_pair_psp22 {
                     amount_of_psp22_token2_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
         
 
-            (amount_of_psp22_token1_to_give,amount_of_psp22_token2_to_give)
+            Ok((amount_of_psp22_token1_to_give,amount_of_psp22_token2_to_give))
         
         }
 
@@ -515,7 +513,7 @@ pub mod trading_pair_psp22 {
         pub fn get_psp22_token1_withdraw_tokens_amount(
             &self,
             share_amount: Balance
-        ) -> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
 
        
             let amount_of_psp22_token1_to_give:Balance;
@@ -526,12 +524,12 @@ pub mod trading_pair_psp22 {
                     amount_of_psp22_token1_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
         
 
-            amount_of_psp22_token1_to_give
+            Ok(amount_of_psp22_token1_to_give)
         
         }
 
@@ -540,7 +538,7 @@ pub mod trading_pair_psp22 {
         pub fn get_psp22_token2_withdraw_tokens_amount(
             &self,
             share_amount: Balance
-        ) -> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
 
         
             //calculating the amount of PSP22 tokens 2 to give to the caller
@@ -551,12 +549,12 @@ pub mod trading_pair_psp22 {
                     amount_of_psp22_token2_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
         
 
-            amount_of_psp22_token2_to_give
+            Ok(amount_of_psp22_token2_to_give)
         
         
         }
@@ -567,7 +565,7 @@ pub mod trading_pair_psp22 {
         pub fn get_account_locked_tokens(
             &self,
             account_id:AccountId
-        ) -> (Balance,Balance) {
+        )  -> Result<(Balance,Balance), TradingPairErrors> {
            
             //account address
             let caller = account_id;
@@ -581,7 +579,7 @@ pub mod trading_pair_psp22 {
 
             if caller_shares <= 0 {
 
-                return (amount_of_psp22_token1_to_give,amount_of_psp22_token2_to_give)
+                return Ok((amount_of_psp22_token1_to_give,amount_of_psp22_token2_to_give));
                  
             }
 
@@ -591,7 +589,7 @@ pub mod trading_pair_psp22 {
                     amount_of_psp22_token1_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -601,12 +599,12 @@ pub mod trading_pair_psp22 {
                     amount_of_psp22_token2_to_give = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
         
 
-            (amount_of_psp22_token1_to_give,amount_of_psp22_token2_to_give)
+            Ok((amount_of_psp22_token1_to_give,amount_of_psp22_token2_to_give))
 
             
         }
@@ -616,7 +614,7 @@ pub mod trading_pair_psp22 {
         pub fn get_expected_lp_token_amount(
             &self,
             psp22_token1_deposit_amount:Balance
-        ) -> Balance {
+        )  -> Result<Balance, TradingPairErrors>  {
 
             //init LP shares variable (shares to give to caller)
             let mut shares:Balance = 0;
@@ -638,13 +636,13 @@ pub mod trading_pair_psp22 {
                     shares = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
              
             }
 
-            shares
+            Ok(shares)
             
         }
  
@@ -653,12 +651,12 @@ pub mod trading_pair_psp22 {
 	    #[ink(message)]
         pub fn get_price_for_one_psp22_token1(
             &self
-        )-> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
             
             //formula to calculate the price
-            let amount_out = self.get_est_price_psp22_token1_to_psp22_token2(1u128 * 10u128.pow(12));
+            let amount_out = self.get_est_price_psp22_token1_to_psp22_token2(1u128 * 10u128.pow(12)).unwrap();
 
-            return amount_out
+            Ok(amount_out)
 
         }
 
@@ -666,14 +664,14 @@ pub mod trading_pair_psp22 {
 	    #[ink(message)]
         pub fn get_price_for_one_psp22_token2(
             &self
-        )-> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
             
 
 
             //formula to calculate the price
-            let amount_out:Balance = self.get_est_price_psp22_token2_to_psp22_token1(1u128 * 10u128.pow(12));
+            let amount_out:Balance = self.get_est_price_psp22_token2_to_psp22_token1(1u128 * 10u128.pow(12)).unwrap();
 
-            return amount_out
+            Ok(amount_out)
 
         }
 
@@ -682,7 +680,7 @@ pub mod trading_pair_psp22 {
         pub fn get_est_price_psp22_token1_to_psp22_token2(
             &self,
             amount_in: Balance
-        )-> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -699,7 +697,7 @@ pub mod trading_pair_psp22 {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -712,7 +710,7 @@ pub mod trading_pair_psp22 {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -727,7 +725,7 @@ pub mod trading_pair_psp22 {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
 
@@ -741,7 +739,7 @@ pub mod trading_pair_psp22 {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
 
@@ -758,11 +756,11 @@ pub mod trading_pair_psp22 {
                     amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
-            return amount_out                        
+            Ok(amount_out)                        
 
         }
 
@@ -772,7 +770,7 @@ pub mod trading_pair_psp22 {
         pub fn get_est_price_psp22_token2_to_psp22_token1(
             &self,
             amount_in: Balance
-        )-> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -789,7 +787,7 @@ pub mod trading_pair_psp22 {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -801,7 +799,7 @@ pub mod trading_pair_psp22 {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -815,7 +813,7 @@ pub mod trading_pair_psp22 {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
 
@@ -828,7 +826,7 @@ pub mod trading_pair_psp22 {
                             amount_in_with_lp_fees = result;
                         }
                         None => {
-                            panic!("overflow!");
+                            return Err(TradingPairErrors::Overflow);
                         }
                     };
 
@@ -845,11 +843,11 @@ pub mod trading_pair_psp22 {
                     amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
-            return amount_out                        
+            Ok(amount_out)
 
         }
 
@@ -858,7 +856,7 @@ pub mod trading_pair_psp22 {
         pub fn get_price_impact_psp22_token1_to_psp22_token2(
             &self,
             amount_in: Balance
-        ) -> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
             
             let actual_fee:Balance;
 
@@ -868,12 +866,12 @@ pub mod trading_pair_psp22 {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
             //fetching the amount of PSP22 2 tokens the caller WOULD get if he would swap
-            let psp22_token2_amount_out:Balance = self.get_est_price_psp22_token1_to_psp22_token2(amount_in);
+            let psp22_token2_amount_out:Balance = self.get_est_price_psp22_token1_to_psp22_token2(amount_in).unwrap();
 
             //reducting the LP fee from the PSP22 amount in
             let amount_in_with_lp_fees:Balance;
@@ -883,7 +881,7 @@ pub mod trading_pair_psp22 {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -896,12 +894,12 @@ pub mod trading_pair_psp22 {
                     amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
             
-            return amount_out    
+            Ok(amount_out)    
 
         }
         ///function to get the estimated price impact for given psp22 token2 amount
@@ -909,7 +907,7 @@ pub mod trading_pair_psp22 {
         pub fn get_price_impact_psp22_token2_to_psp22_token1(
             &self,
             amount_in:Balance
-        ) -> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
 
             let actual_fee:Balance;
 
@@ -919,12 +917,12 @@ pub mod trading_pair_psp22 {
                     actual_fee = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
             //fetching the amount of PSP22 1 tokens the caller WOULD get if he would swap
-            let psp22_token1_amount_out = self.get_est_price_psp22_token2_to_psp22_token1(amount_in);
+            let psp22_token1_amount_out = self.get_est_price_psp22_token2_to_psp22_token1(amount_in).unwrap();
 
             //calc the amount_in with current fees to transfer to the LP providers.
             let amount_in_with_lp_fees:Balance;
@@ -934,7 +932,7 @@ pub mod trading_pair_psp22 {
                     amount_in_with_lp_fees = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -946,11 +944,11 @@ pub mod trading_pair_psp22 {
                     amount_out = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
             
-            return amount_out  
+            Ok(amount_out)  
 
 
         }
@@ -963,7 +961,7 @@ pub mod trading_pair_psp22 {
             psp22_token1_amount_to_swap: Balance,
             amount_to_validate: Balance,
             slippage: Balance
-        ) {
+        )  -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -974,10 +972,7 @@ pub mod trading_pair_psp22 {
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_token1_current_balance <= 0 {
-                panic!(
-                    "Contract PSP22 1 token balance is 0,
-                    cannot prefrom swaps with empty PSP22 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfPSP1);
             }
 
             let contract_psp22_token2_current_balance:Balance = PSP22Ref::balance_of(
@@ -987,10 +982,8 @@ pub mod trading_pair_psp22 {
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_token2_current_balance <= 0 {
-                panic!(
-                    "Contract PSP22 2 token balance is 0,
-                    cannot prefrom swaps with empty PSP22 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfPSP2);
+
             }
 
             let caller_current_balance = PSP22Ref::balance_of(
@@ -1000,10 +993,7 @@ pub mod trading_pair_psp22 {
 
             //making sure caller has more or equal to the amount he transfers.
             if caller_current_balance < psp22_token1_amount_to_swap {
-                panic!(
-                    "Caller balance is lower than the amount of PSP22_1 token he wishes to trasnfer,
-                    kindly lower the deposited PSP22_1 tokens amount."
-                )
+                return Err(TradingPairErrors::CallerInsufficientPSP1Balance);
             }
 
             let contract_allowance = PSP22Ref::allowance(
@@ -1014,14 +1004,13 @@ pub mod trading_pair_psp22 {
 
             //making sure trading pair contract has enough allowance.
             if contract_allowance < psp22_token1_amount_to_swap {
-                panic!(
-                    "Trading pair does not have enough allowance to transact,
-                    make sure you approved the amount of deposited PSP22_1 tokens before swapping."
-                )
+                return Err(TradingPairErrors::NotEnoughPSP1Allowance);
             }
             
             //amount of PSP22 tokens 2 to give to caller before traders fee.
-            let psp22_token2_amount_out_for_caller_before_traders_fee = self.get_est_price_psp22_token1_to_psp22_token2(psp22_token1_amount_to_swap);
+            let psp22_token2_amount_out_for_caller_before_traders_fee = self.get_est_price_psp22_token1_to_psp22_token2(
+                psp22_token1_amount_to_swap)
+                .unwrap();
 
             let actual_psp22_token2_amount_out_for_caller:Balance;
 
@@ -1033,7 +1022,7 @@ pub mod trading_pair_psp22 {
                     psp22_token2_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1043,7 +1032,7 @@ pub mod trading_pair_psp22 {
                     actual_psp22_token2_amount_out_for_caller = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1055,19 +1044,19 @@ pub mod trading_pair_psp22 {
                     psp22_token1_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
             //percentage dif between given PSP22 2 tokens amount from front-end and acutal final PSP22 2 tokens amount
-            let percentage_diff = self.check_diffrenece(amount_to_validate,psp22_token2_amount_out_for_caller_before_traders_fee);
+            let percentage_diff = self.check_diffrenece(
+                amount_to_validate,
+                psp22_token2_amount_out_for_caller_before_traders_fee)
+                .unwrap();
 
             //Validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
-                panic!(
-                    "The percentage difference is bigger than the given slippage,
-                    kindly re-adjust the slippage settings."
-                )
+                return Err(TradingPairErrors::SlippageTolerance);
             }
 
             //cross contract call to PSP22 1 contract to transfer PSP22 1 tokens to the Trading Pair contract (self)
@@ -1082,50 +1071,47 @@ pub mod trading_pair_psp22 {
                     .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
-                        panic!(
-                            "Error in PSP22_1 transferFrom cross contract call function,
-                            kindly re-adjust your deposited PSP22_1 tokens."
-                        )
+                        return Err(TradingPairErrors::PSP1TransferFromFailed);
             }
 
             //function to transfer PSP22 2 tokens to caller
-            if PSP22Ref::transfer(
+            PSP22Ref::transfer(
                 &self.psp22_token2_address,
                 caller,
                 actual_psp22_token2_amount_out_for_caller,
                 vec![])
-                .is_err() {
+                .unwrap_or_else(|error| {
                     panic!(
-                        "Error in PSP22_2 transfer cross contract call function,
-                        kindly re-adjust PSP22_1 deposit amount."
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
                     )
-            }
+            });
 
             //function to transfer PSP22 2 tokens to vault
-            if PSP22Ref::transfer(
+            PSP22Ref::transfer(
                 &self.psp22_token2_address,
                 self.vault,
                 psp22_token2_amount_out_for_vault,
                 vec![])
-                    .is_err() {
-                        panic!(
-                            "Error in PSP22_2 transfer cross contract call function,
-                            kindly re-adjust PSP22_1 deposit amount."
-                        )
-            }
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
+            });
 
             //function to transfer PSP22 tokens 1 to vault
-            if PSP22Ref::transfer(
+            PSP22Ref::transfer(
                 &self.psp22_token1_address,
                 self.vault,
                 psp22_token1_amount_out_for_vault,
                 vec![])
-                    .is_err() {
-                        panic!(
-                            "Error in PSP22_2 transfer cross contract call function,
-                            kindly re-adjust PSP22_1 deposit amount."
-                        )
-            }
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
+            });
 
 
             //increase num of trans
@@ -1138,6 +1124,8 @@ pub mod trading_pair_psp22 {
                 psp22_2_given_amount_for_vault:psp22_token2_amount_out_for_vault
             });
 
+            Ok(())
+
         }
 
 
@@ -1148,7 +1136,7 @@ pub mod trading_pair_psp22 {
             psp22_token2_amount_to_swap: Balance,
             amount_to_validate: Balance,
             slippage: Balance
-        ) {
+        )  -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -1159,10 +1147,7 @@ pub mod trading_pair_psp22 {
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_token1_current_balance <= 0 {
-                panic!(
-                    "Contract PSP22 1 token balance is 0,
-                    cannot prefrom swaps with empty PSP22 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfPSP1);
             }
 
             let contract_psp22_token2_current_balance:Balance = PSP22Ref::balance_of(
@@ -1172,10 +1157,7 @@ pub mod trading_pair_psp22 {
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_token2_current_balance <= 0 {
-                panic!(
-                    "Contract PSP22 2 token balance is 0,
-                    cannot prefrom swaps with empty PSP22 balance."
-                )
+                return Err(TradingPairErrors::ContractOutOfPSP2);
             }
             
             let caller_current_balance = PSP22Ref::balance_of(
@@ -1185,10 +1167,7 @@ pub mod trading_pair_psp22 {
 
             //making sure caller has more or equal to the amount he transfers.
             if caller_current_balance < psp22_token2_amount_to_swap {
-                panic!(
-                    "Caller balance is lower than the amount of PSP22_2 token he wishes to trasnfer,
-                    kindly lower your deposited PSP22_2 tokens amount."
-                )
+                return Err(TradingPairErrors::CallerInsufficientPSP2Balance);
             }
 
             let contract_allowance = PSP22Ref::allowance(
@@ -1199,15 +1178,14 @@ pub mod trading_pair_psp22 {
 
             //making sure trading pair contract has enough allowance.
             if contract_allowance < psp22_token2_amount_to_swap {
-                panic!(
-                    "Trading pair does not have enough allowance to transact,
-                    make sure you approved the amount of deposited PSP22_2 tokens before swapping."
-                )
+                return Err(TradingPairErrors::NotEnoughPSP2Allowance);
             }
 
 
             //amount of PSP22 tokens 1 to give to caller before traders fee.
-            let psp22_token1_amount_out_for_caller_before_traders_fee = self.get_est_price_psp22_token2_to_psp22_token1(psp22_token2_amount_to_swap);
+            let psp22_token1_amount_out_for_caller_before_traders_fee = self.get_est_price_psp22_token2_to_psp22_token1(
+                psp22_token2_amount_to_swap)
+                .unwrap();
 
             let actual_psp22_token1_amount_out_for_caller:Balance;
 
@@ -1219,7 +1197,7 @@ pub mod trading_pair_psp22 {
                     psp22_token1_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1229,7 +1207,7 @@ pub mod trading_pair_psp22 {
                     actual_psp22_token1_amount_out_for_caller = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
     
@@ -1241,7 +1219,7 @@ pub mod trading_pair_psp22 {
                     psp22_token2_amount_out_for_vault = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1249,14 +1227,11 @@ pub mod trading_pair_psp22 {
             let percentage_diff = self.check_diffrenece(
                     amount_to_validate,
                     psp22_token1_amount_out_for_caller_before_traders_fee
-                );
+                ).unwrap();
 
             //Validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
-                panic!(
-                    "The percentage difference is bigger than the given slippage,
-                    kindly re-adjust the slippage settings."
-                )
+                return Err(TradingPairErrors::SlippageTolerance);
             }
 
 
@@ -1272,51 +1247,50 @@ pub mod trading_pair_psp22 {
                     .try_invoke()
                     .expect("Transfer failed")
                     .is_err(){
-                        panic!(
-                            "Error in PSP22_2 transferFrom cross contract call function,
-                            kindly re-adjust your deposited PSP22_2 tokens."
-                        )
+                        return Err(TradingPairErrors::PSP2TransferFromFailed);
             }
 
 
             //function to transfer PSP22 1 token to caller
-            if PSP22Ref::transfer(
+            PSP22Ref::transfer(
                 &self.psp22_token1_address,
                 caller,
                 actual_psp22_token1_amount_out_for_caller,
                 vec![])
-                    .is_err() {
-                        panic!(
-                            "Error in PSP22_1 transfer cross contract call function,
-                            kindly re-adjust PSP22_2 deposit amount."
-                        )
-            }
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
+            });
+
 
             //function to transfer PSP22 1 token to vault
-            if PSP22Ref::transfer(
+            PSP22Ref::transfer(
                 &self.psp22_token1_address,
                 self.vault,
                 psp22_token1_amount_out_for_vault,
                 vec![])
-                    .is_err() {
-                        panic!(
-                            "Error in PSP22_1 transfer cross contract call function,
-                            kindly re-adjust PSP22_2 deposit amount."
-                        )
-            }
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
+            });
+
 
             //function to transfer PSP22 2 token to vault
-            if PSP22Ref::transfer(
+            PSP22Ref::transfer(
                 &self.psp22_token2_address,
                 self.vault,
                 psp22_token2_amount_out_for_vault,
                 vec![])
-                    .is_err() {
-                        panic!(
-                            "Error in PSP22_1 transfer cross contract call function,
-                            kindly re-adjust PSP22_2 deposit amount."
-                        )
-            }
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Failed to transfer PSP22 tokens to caller : {:?}",
+                        error
+                    )
+            });
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
@@ -1328,6 +1302,8 @@ pub mod trading_pair_psp22 {
                 psp22_1_given_amount_for_vault:psp22_token1_amount_out_for_vault
             });
 
+            Ok(())
+
             
         }
         
@@ -1337,7 +1313,7 @@ pub mod trading_pair_psp22 {
             &mut self,
             recipient:AccountId,
             shares_to_transfer: Balance
-        ) {
+        )  -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -1345,10 +1321,8 @@ pub mod trading_pair_psp22 {
 
             let recipient_shares:Balance = self.balances.get(&recipient).unwrap_or(0);
         
-            if caller_shares < shares_to_transfer {
-                panic!(
-                    "Cannot transfer LP shares to recipient, caller balance is lower than the requested transfer amount."
-                )
+            if caller_shares < shares_to_transfer {        
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
             }
 
             let new_caller_lp_balance:Balance;
@@ -1359,7 +1333,7 @@ pub mod trading_pair_psp22 {
                     new_caller_lp_balance = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
@@ -1371,13 +1345,15 @@ pub mod trading_pair_psp22 {
                     new_recipient_lp_balance = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
             self.balances.insert(caller, &(new_caller_lp_balance));
  
             self.balances.insert(recipient, &(new_recipient_lp_balance));
+
+            Ok(())
 
 
         }
@@ -1388,26 +1364,24 @@ pub mod trading_pair_psp22 {
             &mut self,
             spender:AccountId,
             shares_to_approve: Balance
-        )  {
+        )  -> Result<(), TradingPairErrors>  {
 
-           let caller = self.env().caller();
+            let caller = self.env().caller();
 
-           let caller_shares:Balance = self.balances.get(&caller).unwrap_or(0);
+            let caller_shares:Balance = self.balances.get(&caller).unwrap_or(0);
 
-           if caller_shares < shares_to_approve {
-            panic!(
-                "Cannot approve LP tokens, owner LP token balance is lower than the given shares to approve."
-            )
-           }
+            if caller_shares < shares_to_approve {
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
+            }
 
-           //overflow validation
-           if shares_to_approve >= u128::MAX {
-            panic!(
-                "overflow!"
-            )
-           }
+            //overflow validation
+            if shares_to_approve >= u128::MAX {
+                return Err(TradingPairErrors::Overflow);
+            }
 
-           self.lp_tokens_allowances.insert((caller,spender), &(shares_to_approve));
+            self.lp_tokens_allowances.insert((caller,spender), &(shares_to_approve));
+
+            Ok(())
 
         }
 
@@ -1419,72 +1393,67 @@ pub mod trading_pair_psp22 {
             owner:AccountId,
             to:AccountId,
             shares_to_transfer: Balance
-        )  {
+        )  -> Result<(), TradingPairErrors>  {
 
-           let spender = self.env().caller();
+            let spender = self.env().caller();
 
-           let owner_shares:Balance = self.balances.get(&owner).unwrap_or(0);
+            let owner_shares:Balance = self.balances.get(&owner).unwrap_or(0);
 
-           let to_shares:Balance = self.balances.get(&to).unwrap_or(0);
+            let to_shares:Balance = self.balances.get(&to).unwrap_or(0);
 
-           let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
+            let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
 
-           if allowance < shares_to_transfer {
-            panic!(
-                "Cannot transfer LP shares to spender,
-                allowance is lower than the requested transfer amount."
-            )
-           }
+            if allowance < shares_to_transfer {
+                return Err(TradingPairErrors::NotEnoughOwnerLPAllowance);
+            }
 
-           if owner_shares < shares_to_transfer {
-            panic!(
-                "Cannot transfer LP shares to spender,
-                caller balance is lower than the requested transfer amount."
-            )
-           }
+            if owner_shares < shares_to_transfer {
+                return Err(TradingPairErrors::CallerInsufficientLPBalance);
+            }
 
-           let new_owner_lp_balance:Balance;
+            let new_owner_lp_balance:Balance;
 
-           //calculating caller total LP share tokens amount after transfer
-           match owner_shares.checked_sub(shares_to_transfer) {
-               Some(result) => {
-                   new_owner_lp_balance = result;
-               }
-               None => {
-                   panic!("overflow!");
-               }
-           };
+            //calculating caller total LP share tokens amount after transfer
+            match owner_shares.checked_sub(shares_to_transfer) {
+                Some(result) => {
+                    new_owner_lp_balance = result;
+                }
+                None => {
+                    return Err(TradingPairErrors::Overflow);
+                }
+            };
 
-           let new_to_lp_balance:Balance;
+            let new_to_lp_balance:Balance;
 
-           //calculating caller total LP share tokens amount after transfer
-           match to_shares.checked_add(shares_to_transfer) {
-               Some(result) => {
-                new_to_lp_balance = result;
-               }
-               None => {
-                   panic!("overflow!");
-               }
-           };
+            //calculating caller total LP share tokens amount after transfer
+            match to_shares.checked_add(shares_to_transfer) {
+                Some(result) => {
+                    new_to_lp_balance = result;
+                }
+                None => {
+                    return Err(TradingPairErrors::Overflow);
+                }
+            };
 
-           let new_allowance:Balance;
+            let new_allowance:Balance;
 
-           //calculating spender new allowance amount
-           match allowance.checked_sub(shares_to_transfer) {
+            //calculating spender new allowance amount
+            match allowance.checked_sub(shares_to_transfer) {
                 Some(result) => {
                     new_allowance = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-           self.balances.insert(owner, &(new_owner_lp_balance));
+            self.balances.insert(owner, &(new_owner_lp_balance));
 
-           self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
+            self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
 
-           self.balances.insert(to, &(new_to_lp_balance));
+            self.balances.insert(to, &(new_to_lp_balance));
     
+            Ok(())
          
         }
 
@@ -1526,7 +1495,7 @@ pub mod trading_pair_psp22 {
             &self
         ) -> Balance {
         
-            self.get_est_price_psp22_token1_to_psp22_token2(100u128 * 10u128.pow(12))
+            self.get_est_price_psp22_token1_to_psp22_token2(100u128 * 10u128.pow(12)).unwrap()
 
         }
 
@@ -1589,7 +1558,7 @@ pub mod trading_pair_psp22 {
             &mut self,
             value1: Balance,
             value2: Balance
-        ) -> Balance {
+        )  -> Result<Balance, TradingPairErrors> {
 
             let abs_dif = value1.abs_diff(value2);
 
@@ -1602,11 +1571,11 @@ pub mod trading_pair_psp22 {
                     diff = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            diff
+            Ok(diff)
             
         }
  

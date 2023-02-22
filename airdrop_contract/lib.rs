@@ -21,11 +21,15 @@ pub mod airdrop_contract {
     #[ink(storage)]
     pub struct AirdropContract {
         
-        manager: AccountId,
         panx_psp22: AccountId,
         collected_airdrop: Mapping<AccountId, i64>,
+    }
 
-
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub enum AirDropErrors {
+        CallerRedeemedAirdrop,
+        Overflow,
     }
 
     #[ink(event)]
@@ -46,12 +50,10 @@ pub mod airdrop_contract {
         ) -> Self {
             
             let panx_psp22 = panx_contract;  
-            let manager = Self::env().caller();
             let collected_airdrop = Mapping::default();
             
             Self{
 
-                manager,
                 panx_psp22,
                 collected_airdrop
 
@@ -63,14 +65,11 @@ pub mod airdrop_contract {
         #[ink(message)]
         pub fn collect_50_tokens(
             &mut self
-        )  {
+        )   -> Result<(), AirDropErrors>  {
 
             //making sure account didnt redeem airdrop yet
             if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
-            panic!(
-                "Caller already redeemed the airdrop, 
-                cannot redeem again."
-            )
+                return Err(AirDropErrors::CallerRedeemedAirdrop);
             }
 
             let tokens_to_transfer:Balance;
@@ -80,7 +79,7 @@ pub mod airdrop_contract {
                     tokens_to_transfer = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(AirDropErrors::Overflow);
                 }
             };
 
@@ -104,6 +103,8 @@ pub mod airdrop_contract {
                 caller:self.env().caller()
             });
 
+            Ok(())
+
         
         }
 
@@ -111,15 +112,13 @@ pub mod airdrop_contract {
         #[ink(message)]
         pub fn collect_500_tokens(
             &mut self
-        )  {
+        )   -> Result<(), AirDropErrors>  {
 
             let caller = self.env().caller();
 
             //making sure account didnt redeem airdrop yet
             if self.collected_airdrop.get(&self.env().caller()).unwrap_or(0) != 0 {
-                panic!(
-                    "Caller already redeemed the airdrop, cannot redeem again."
-                )
+                return Err(AirDropErrors::CallerRedeemedAirdrop);
             }
 
             let tokens_to_transfer:Balance;
@@ -129,7 +128,7 @@ pub mod airdrop_contract {
                     tokens_to_transfer = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(AirDropErrors::Overflow);
                 }
             };
 
@@ -152,6 +151,8 @@ pub mod airdrop_contract {
                 caller:caller
             });
 
+            Ok(())
+
         }
 
 
@@ -159,7 +160,7 @@ pub mod airdrop_contract {
         #[ink(message)]
         pub fn get_airdrop_contract_panx_reserve(
             &self
-        )-> Balance  {
+        )   -> Balance  {
         
             let balance:Balance = PSP22Ref::balance_of(
                 &self.panx_psp22,
@@ -174,7 +175,7 @@ pub mod airdrop_contract {
         pub fn user_airdrop_collection_status(
             &mut self,
             account:AccountId
-        )->i64  {
+        )   ->i64  {
 
             let airdrop_status = self.collected_airdrop.get(account).unwrap_or(0);
 
