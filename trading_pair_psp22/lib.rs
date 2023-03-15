@@ -56,7 +56,6 @@ pub mod trading_pair_psp22 {
         ContractOutOfPSP1,
         ContractOutOfPSP2,
         NotEnoughOwnerLPAllowance
-
     }
 
     #[ink(event)]
@@ -394,6 +393,11 @@ pub mod trading_pair_psp22 {
             &mut self,
             shares: Balance
         )  -> Result<(), TradingPairErrors>   {
+
+            //throw error is the caller tries to withdraw 0 LP shares
+            if shares <= 0 {
+                return Err(TradingPairErrors::ZeroSharesGiven);
+            }
           
             //caller address
             let caller = self.env().caller();

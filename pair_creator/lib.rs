@@ -5,6 +5,7 @@
 pub mod pair_creator {
 
 
+
     use ink::LangError;
     use trading_pair_psp22::TradingPairPsp22Ref;
     use trading_pair_azero::TradingPairAzeroRef;
@@ -13,7 +14,29 @@ pub mod pair_creator {
     #[ink(storage)]
     pub struct PairCreator {
     
+
     }
+
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub enum PairCreatorErrors {
+        InstantiatingFailed
+
+    }
+
+    impl From<ink::env::Error > for PairCreatorErrors {
+        fn from(cause: ink::env::Error) -> Self {
+            PairCreatorErrors::InstantiatingFailed
+        }
+    }
+
+    impl From<LangError> for PairCreatorErrors {
+        fn from(cause:LangError) -> Self {
+            PairCreatorErrors::InstantiatingFailed
+        }
+    }
+
+
 
     #[ink(event)]
     pub struct NewTPA {
@@ -49,7 +72,7 @@ pub mod pair_creator {
             fee:Balance,
             panx_contract:AccountId,
             vault_address:AccountId
-        )   -> Result<AccountId, LangError> {
+        )   -> Result<AccountId, PairCreatorErrors> {
 
             
             let salt = version.to_le_bytes();
@@ -62,15 +85,9 @@ pub mod pair_creator {
                         .endowment(0)
                         .code_hash(azero_trading_pair_hash)
                         .salt_bytes(salt)
-                        .try_instantiate()
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "failed at instantiating the A0 trading pair contract: {:?}",
-                                error
-                            )
-            });
+                        .try_instantiate()??;
 
-            let new_pair_address = trading_pair.expect("failed at instantiating the A0 trading pair").get_account_id();
+            let new_pair_address = trading_pair.get_account_id();
 
             Ok(new_pair_address)
         
@@ -87,7 +104,7 @@ pub mod pair_creator {
             fee:Balance,
             panx_contract:AccountId,
             vault_address:AccountId
-        )   -> Result<AccountId, LangError> {
+        )   -> Result<AccountId, PairCreatorErrors> {
 
             
             let salt = version.to_le_bytes();
@@ -101,15 +118,9 @@ pub mod pair_creator {
                         .endowment(0)
                         .code_hash(psp22_trading_pair_hash)
                         .salt_bytes(salt)
-                        .try_instantiate()
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "failed at instantiating the PSP22 trading pair contract: {:?}",
-                                error
-                            )
-            });
+                        .try_instantiate()??;
 
-            let new_pair_address = trading_pair.expect("failed at instantiating the PSP22 trading pair").get_account_id();
+            let new_pair_address = trading_pair.get_account_id();
 
             Ok(new_pair_address)
         

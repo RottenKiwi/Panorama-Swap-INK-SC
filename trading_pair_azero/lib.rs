@@ -11,7 +11,6 @@ pub mod trading_pair_azero {
 
     use openbrush::{
         contracts::{
-
             traits::psp22::PSP22Ref,
         },
     };
@@ -45,7 +44,6 @@ pub mod trading_pair_azero {
         ZeroSharesGiven,
         SlippageTolerance,
         PSP22TransferFromFailed,
-        PSP22TransferFailed,
         A0TransferFailed,
         CallerInsufficientLPBalance,
         ContractOutOfA0,
@@ -128,7 +126,7 @@ pub mod trading_pair_azero {
             psp22_deposit_amount:Balance,
             excpeted_lp_tokens:Balance,
             slippage:Balance
-        )  -> Result<(), TradingPairErrors> {
+        )   -> Result<(), TradingPairErrors> {
 
             let caller = self.env().caller();
 
@@ -171,11 +169,11 @@ pub mod trading_pair_azero {
             if self.total_supply > 0{
 
 
-               //we need to sub the incoming amount of A0 by the current A0 reserve (current reserve includes incoming A0)
-               let reserve_before_transaction = self.get_a0_balance() - self.env().transferred_value();
+                //we need to sub the incoming amount of A0 by the current A0 reserve (current reserve includes incoming A0)
+                let reserve_before_transaction = self.get_a0_balance() - self.env().transferred_value();
 
-               //calculating the amount of shares to give to the provider if its not the first LP deposit
-               match (self.env().transferred_value() * self.total_supply).checked_div(reserve_before_transaction) {
+                //calculating the amount of shares to give to the provider if its not the first LP deposit
+                match (self.env().transferred_value() * self.total_supply).checked_div(reserve_before_transaction) {
                     Some(result) => {
                         shares = result;
                     }
@@ -230,6 +228,15 @@ pub mod trading_pair_azero {
                     .is_err(){
                         return Err(TradingPairErrors::PSP22TransferFromFailed);
                     }
+
+            let caller_balance_after_transfer:Balance = PSP22Ref::balance_of(
+                &self.psp22_token,
+                caller
+            );
+
+            if caller_current_balance == caller_balance_after_transfer {
+                return Err(TradingPairErrors::CallerInsufficientPSP22Balance);
+            }
                 
                     
             //increasing LP balance of caller (mint)
@@ -255,7 +262,12 @@ pub mod trading_pair_azero {
        pub fn withdraw_specific_amount(
             &mut self,
             shares: Balance
-        )  -> Result<(), TradingPairErrors>  {
+        )   -> Result<(), TradingPairErrors>  {
+
+            //throw error is the caller tries to withdraw 0 LP shares
+            if shares <= 0 {
+                return Err(TradingPairErrors::ZeroSharesGiven);
+            }
           
             //caller address 
             let caller = self.env().caller();
@@ -895,17 +907,14 @@ pub mod trading_pair_azero {
 
             let caller = self.env().caller();
 
-            let contract_a0_current_balance = self.env().balance();
+            let contract_a0_current_balance = self.get_a0_balance();
 
             //making sure that the contract has more than 0 A0 coins.
             if contract_a0_current_balance <= 0 {
                 return Err(TradingPairErrors::ContractOutOfA0);
             }
 
-            let contract_psp22_current_balance:Balance = PSP22Ref::balance_of(
-                &self.psp22_token,
-                Self::env().account_id()
-            );
+            let contract_psp22_current_balance:Balance = self.get_psp22_balance();
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_current_balance <= 0 {
@@ -1056,17 +1065,14 @@ pub mod trading_pair_azero {
 
             let caller = self.env().caller();
 
-            let contract_a0_current_balance = self.env().balance();
+            let contract_a0_current_balance = self.get_a0_balance();
 
             //making sure that the contract has more than 0 A0 coins.
             if contract_a0_current_balance <= 0 {
                 return Err(TradingPairErrors::ContractOutOfA0);
             }
 
-            let contract_psp22_current_balance:Balance = PSP22Ref::balance_of(
-                &self.psp22_token,
-                Self::env().account_id()
-            );
+            let contract_psp22_current_balance:Balance = self.get_psp22_balance();
 
             //making sure that the contract has more than 0 PSP22 tokens.
             if contract_psp22_current_balance <= 0 {
@@ -1402,6 +1408,7 @@ pub mod trading_pair_azero {
             psp22_balance
 
         }
+
         ///function to get current fee 
         #[ink(message)]
         pub fn get_fee(
@@ -1409,17 +1416,6 @@ pub mod trading_pair_azero {
         ) -> Balance {
 
             let fee:Balance = self.fee;
-            fee
-
-        }
-
-        ///function to get current fee 
-        #[ink(message)]
-        pub fn get_traders_fee(
-            &self
-        ) -> Balance {
-
-            let fee:Balance = self.traders_fee;
             fee
 
         }
@@ -1455,13 +1451,17 @@ pub mod trading_pair_azero {
                     percentage_difference = result;
                 }
                 None => {
-                    panic!("overflow!");
+                    return Err(TradingPairErrors::Overflow);
                 }
             };
 
-            return Err(TradingPairErrors::Overflow);
+
+
+            Ok(percentage_difference)
             
         }
+
+
 
  
     }
