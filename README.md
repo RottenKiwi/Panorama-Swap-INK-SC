@@ -24,8 +24,9 @@ We are following and implementing OpenBrush's PSP22 protocol and standard.
 
 5. airdrop_contract - this smart contract contains all the logic for the airdrop event.
 
-6. stackin_contract - this smart contract contains all the logic for the staking program.
+6. stacking_contract - this smart contract contains all the logic for the staking program.
 
+67. multi_sig - this smart contract contains all the logic for the multiple signatures wallet.
 
 
 #### Useful link:

@@ -1010,6 +1010,15 @@ pub mod trading_pair_azero {
                         return Err(TradingPairErrors::PSP22TransferFromFailed);
             }
 
+            let caller_balance_after_transfer:Balance = PSP22Ref::balance_of(
+                &self.psp22_token,
+                caller
+            );
+
+            if caller_current_balance == caller_balance_after_transfer {
+                return Err(TradingPairErrors::CallerInsufficientPSP22Balance);
+            }
+
             //cross contract call to PSP22 contract to transfer PSP22 to the vault
             PSP22Ref::transfer(
                 &self.psp22_token,
@@ -1454,8 +1463,6 @@ pub mod trading_pair_azero {
                     return Err(TradingPairErrors::Overflow);
                 }
             };
-
-
 
             Ok(percentage_difference)
             

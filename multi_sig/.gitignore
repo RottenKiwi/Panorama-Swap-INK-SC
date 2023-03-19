@@ -1,10 +1,8 @@
 # Ignore build artifacts from the local tests sub-crate.
-**/target/
 /target/
-
-# Ignore DS file gene
 .DS_Store
 gensrc
+
 
 # Ignore backup files creates by cargo fmt.
 **/*.rs.bk
@@ -12,4 +10,3 @@ gensrc
 # Remove Cargo.lock when creating an executable, leave it for libraries
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
 Cargo.lock
-
