@@ -15,7 +15,6 @@ pub mod airdrop_contract {
     };
 
     use ink::storage::Mapping;
-    use ink::env::CallFlags;
     use ink::prelude::vec;
 
     #[ink(storage)]
@@ -30,6 +29,7 @@ pub mod airdrop_contract {
     pub enum AirDropErrors {
         CallerRedeemedAirdrop,
         Overflow,
+        PSP22TransferFailed
     }
 
     #[ink(event)]
@@ -84,17 +84,9 @@ pub mod airdrop_contract {
             };
 
             //transfers the airdrop tokens to caller
-            PSP22Ref::transfer(
-                &self.panx_psp22,
-                self.env().caller(),
-                tokens_to_transfer,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.panx_psp22,self.env().caller(),tokens_to_transfer,vec![]).is_err(){
+                    return Err(AirDropErrors::PSP22TransferFailed)
+            }
 
             //make sure to change his collected airdrop status to 1 to prevent the user to call it again
             self.collected_airdrop.insert(self.env().caller(),&1);
@@ -133,17 +125,9 @@ pub mod airdrop_contract {
             };
 
             //transfers the airdrop tokens to caller
-            PSP22Ref::transfer(
-                    &self.panx_psp22,
-                    caller,
-                    tokens_to_transfer,
-                    vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Failed to transfer PSP22 tokens to caller : {:?}",
-                            error
-                        )
-            });
+            if PSP22Ref::transfer(&self.panx_psp22,self.env().caller(),tokens_to_transfer,vec![]).is_err(){
+                return Err(AirDropErrors::PSP22TransferFailed)
+        }
            //make sure to change his collected airdrop status to 1 to prevent the user to call it again
            self.collected_airdrop.insert(self.env().caller(),&1);
            

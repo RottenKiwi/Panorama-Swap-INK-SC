@@ -44,6 +44,7 @@ pub mod trading_pair_azero {
         ZeroSharesGiven,
         SlippageTolerance,
         PSP22TransferFromFailed,
+        PSP22TransferFailed,
         A0TransferFailed,
         CallerInsufficientLPBalance,
         ContractOutOfA0,
@@ -215,16 +216,10 @@ pub mod trading_pair_azero {
 
 
             //cross contract call to psp22 contract to transfer psp22 token to the pair contract
-            if PSP22Ref::transfer_from_builder(
-                &self.psp22_token,
-                caller,
-                Self::env().account_id(),
-                psp22_deposit_amount,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&self.psp22_token,caller,Self::env().account_id(),psp22_deposit_amount,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed")
                     .is_err(){
                         return Err(TradingPairErrors::PSP22TransferFromFailed);
                     }
@@ -299,17 +294,9 @@ pub mod trading_pair_azero {
             };
            
             //cross contract call to PSP22 contract to transfer PSP2 to the caller.
-            PSP22Ref::transfer(
-                &self.psp22_token,
-                caller,
-                psp22_amount_to_give,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token,caller,psp22_amount_to_give,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP22TransferFailed);
+            }
 
             //function to transfer A0 to the caller
             if self.env().transfer(caller, a0_amount_to_give).is_err() {
@@ -996,16 +983,10 @@ pub mod trading_pair_azero {
             };
 
             //cross contract call to psp22 contract to transfer psp22 token to the Pair contract
-            if PSP22Ref::transfer_from_builder(
-                &self.psp22_token,
-                caller,
-                Self::env().account_id(),
-                psp22_amount_to_transfer,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&self.psp22_token,caller,Self::env().account_id(),psp22_amount_to_transfer,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed")
                     .is_err(){
                         return Err(TradingPairErrors::PSP22TransferFromFailed);
             }
@@ -1020,17 +1001,9 @@ pub mod trading_pair_azero {
             }
 
             //cross contract call to PSP22 contract to transfer PSP22 to the vault
-            PSP22Ref::transfer(
-                &self.psp22_token,
-                self.vault,
-                psp22_amount_out_for_vault,
-                vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Failed to transfer PSP22 tokens to vault : {:?}",
-                            error
-                        )
-            });
+            if PSP22Ref::transfer(&self.psp22_token,self.vault,psp22_amount_out_for_vault,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP22TransferFailed);
+            }
 
 
             //function to transfer A0 to the caller.
@@ -1143,36 +1116,17 @@ pub mod trading_pair_azero {
             };
 
             //cross contract call to PSP22 contract to transfer PSP22 to the caller
-            PSP22Ref::transfer(
-                &self.psp22_token,
-                caller,
-                actual_psp22_amount_out_for_caller,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token,caller,actual_psp22_amount_out_for_caller,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP22TransferFailed);
+            }
 
             //cross contract call to PSP22 contract to transfer PSP22 to the vault
-            PSP22Ref::transfer(
-                &self.psp22_token,
-                self.vault,
-                psp22_amount_out_for_vault,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to vault : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token,self.vault,psp22_amount_out_for_vault,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP22TransferFailed);
+            }
 
             //function to transfer A0 to the vault.
-            if self.env().transfer(
-                self.vault,
-                a0_amount_out_for_vault)
-                .is_err() {
+            if self.env().transfer(self.vault,a0_amount_out_for_vault).is_err() {
                     return Err(TradingPairErrors::A0TransferFailed);
             }
 

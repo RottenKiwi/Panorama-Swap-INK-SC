@@ -36,7 +36,9 @@ pub mod vesting_contract {
         CallerIsNotManager,
         CallerCollectedTGEAlready,
         CallerInsufficientLockedTokens,
-        ZeroDaysPassed
+        ZeroDaysPassed,
+        PSP22TransferFailed,
+        Overflow,
     }
 
     #[ink(event)]
@@ -100,7 +102,7 @@ pub mod vesting_contract {
             &mut self,
             account:AccountId,
             panx_to_give_overall:Balance
-        )  -> Result<(), VestingProgramErrors>  {
+        )   -> Result<(), VestingProgramErrors>  {
 
             //Making sure caller is the manager (Only manager can add to the vesting program)
             if self.env().caller() != self.manager {
@@ -199,18 +201,10 @@ pub mod vesting_contract {
             };
 
             //transfers the TGE tokens to caller
-            PSP22Ref::transfer(
-                &self.panx_psp22,
-                caller,
-                amount_of_panx_to_give,
-                vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Failed to transfer PSP22 tokens to caller : {:?}",
-                            error
-                        )
-            });
+            if PSP22Ref::transfer(&self.panx_psp22,caller,amount_of_panx_to_give,vec![]).is_err(){
+                return Err(VestingProgramErrors::PSP22TransferFailed);
 
+            }
             //deducts from overall vesting amount to give
             self.balances.insert(caller, &(caller_current_balance - amount_of_panx_to_give));
 
@@ -327,17 +321,9 @@ pub mod vesting_contract {
             self.balances.insert(caller, &(caller_new_vesting_amount));
 
             //cross contract call to PANX contract to transfer PANX to caller
-            PSP22Ref::transfer(
-                    &self.panx_psp22,
-                    caller,
-                    redeemable_amount,
-                    vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Failed to transfer PSP22 tokens to caller : {:?}",
-                            error
-                        )
-            });
+            if PSP22Ref::transfer(&self.panx_psp22,caller,redeemable_amount,vec![]).is_err(){
+                return Err(VestingProgramErrors::PSP22TransferFailed);
+            }
 
             Self::env().emit_event(Redeem{
                     caller:caller,

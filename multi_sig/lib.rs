@@ -64,6 +64,7 @@ pub mod multi_sig {
         CallerNotParticipant,
         NotEnoughAllowance,
         PSP22TransferFromFailed,
+        PSP22TransferFailed,
         TransactionDoesntExists,
         TokenDoesntExistsInWallet,
         NoEnoughTokenBalance,
@@ -72,7 +73,8 @@ pub mod multi_sig {
         ParticipantAlreadyApproved,
         ParticipantAlreadyRejected,
         Overflow,
-        CallerInsufficientPSP22Balance
+        CallerInsufficientPSP22Balance,
+        
         
 
 
@@ -236,16 +238,11 @@ pub mod multi_sig {
             );
 
             //cross contract call to psp22 contract to transfer psp22 token to the multi-sig wallet. 
-            if PSP22Ref::transfer_from_builder(
-                &psp22_token_address,
-                self.env().caller(),
-                Self::env().account_id(),
-                psp22_amount_to_add,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&psp22_token_address,self.env().caller(),Self::env().account_id(),psp22_amount_to_add,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed").is_err(){
+                    .is_err(){
                         return Err(MultiSigErrors::PSP22TransferFromFailed);
             }
             
@@ -395,14 +392,16 @@ pub mod multi_sig {
 
             let mut caller_is_transaction_participant:bool = false;
 
-            let mut transaction = self
-                .get_wallet_transaction(number_of_transaction)
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to locate transaction : {:?}",
-                        error
-                    )
-            });
+            let mut transaction:WalletTransaction;
+
+            match self.get_wallet_transaction(number_of_transaction) {
+                Ok(located_transaction) => {
+                    transaction = located_transaction;
+                }
+                Err(error) =>{
+                    return Err(error);
+                }
+            };
 
             //maing sure transaction is still active
             if transaction.completed_transaction == true { 
@@ -461,8 +460,11 @@ pub mod multi_sig {
 
                 //send transaction
                 match self.send_transaction(transaction) {
-                    MultiSigErrors => {
-                        return Err(MultiSigErrors::Overflow);
+                    Result::Ok(()) => {
+
+                    }
+                    Result::Err(error) =>{
+                        return Err(error);
                     }
                 };
 
@@ -512,14 +514,16 @@ pub mod multi_sig {
 
             let mut caller_is_transaction_participant:bool = false;
 
-            let mut transaction = self
-                .get_wallet_transaction(number_of_transaction)
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to locate transaction : {:?}",
-                        error
-                    )
-            });
+            let mut transaction:WalletTransaction;
+
+            match self.get_wallet_transaction(number_of_transaction) {
+                Ok(located_transaction) => {
+                    transaction = located_transaction;
+                }
+                Err(error) =>{
+                    return Err(error);
+                }
+            };
 
             //maing sure transaction is still active
             if transaction.completed_transaction == true { 
@@ -595,17 +599,10 @@ pub mod multi_sig {
             let transaction_psp22_token_amount = transaction.psp22_amount_to_transfer;
 
             //cross contract call to PSP22 contract to transfer PSP2 to transaction recipient
-            PSP22Ref::transfer(
-                &transaction_psp22_token_address,
-                transaction_recipient_address,
-                transaction_psp22_token_amount,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&transaction_psp22_token_address,transaction_recipient_address,transaction_psp22_token_amount,vec![]).is_err(){
+                return Err(MultiSigErrors::PSP22TransferFailed);
+            }
+
 
             transaction.completed_transaction = true;
 

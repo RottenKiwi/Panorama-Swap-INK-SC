@@ -51,6 +51,8 @@ pub mod trading_pair_psp22 {
         SlippageTolerance,
         PSP1TransferFromFailed,
         PSP2TransferFromFailed,
+        PSP1TransferFailed,
+        PSP2TransferFailed,
         A0TransferFailed,
         CallerInsufficientLPBalance,
         ContractOutOfPSP1,
@@ -189,18 +191,21 @@ pub mod trading_pair_psp22 {
             );
 
             //cross contract call to psp22 1 token contract to transfer psp22 1 token to the trading pair contract.
-            if PSP22Ref::transfer_from_builder(
-                &self.psp22_token1_address,
-                caller,
-                Self::env().account_id(),
-                psp22_token1_deposit_amount,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&self.psp22_token1_address,caller,Self::env().account_id(),psp22_token1_deposit_amount,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed")
                     .is_err(){
                         return Err(TradingPairErrors::PSP1TransferFromFailed);
+            }
+
+            let caller_psp1_balance_after_transfer:Balance = PSP22Ref::balance_of(
+                &self.psp22_token1_address,
+                caller
+            );
+
+            if caller_current_balance_token1 == caller_psp1_balance_after_transfer {
+                return Err(TradingPairErrors::CallerInsufficientPSP1Balance);
             }
 
             let contract_psp22_1_closing_balance = PSP22Ref::balance_of(
@@ -226,19 +231,22 @@ pub mod trading_pair_psp22 {
             );
 
             //cross contract call to psp22 2 token contract to transfer psp22 2 token to the trading pair contract.
-            if PSP22Ref::transfer_from_builder(
-                &self.psp22_token2_address,
-                caller,
-                Self::env().account_id(),
-                psp22_token2_deposit_amount,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&self.psp22_token2_address,caller,Self::env().account_id(),psp22_token2_deposit_amount,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed")
                     .is_err(){
                         return Err(TradingPairErrors::PSP2TransferFromFailed);
            }
+
+        let caller_psp2_balance_after_transfer:Balance = PSP22Ref::balance_of(
+            &self.psp22_token2_address,
+            caller
+        );
+
+        if caller_current_balance_token2 == caller_psp2_balance_after_transfer {
+            return Err(TradingPairErrors::CallerInsufficientPSP2Balance);
+        }
 
             let contract_psp22_2_closing_balance = PSP22Ref::balance_of(
                 &self.psp22_token1_address,
@@ -284,29 +292,13 @@ pub mod trading_pair_psp22 {
             //validating that shares is greater than 0
             if shares <= 0 {
 
-                PSP22Ref::transfer(
-                    &self.psp22_token1_address,
-                    caller,
-                    actual_psp22_1_deposit_amount,
-                    vec![])
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "Failed to transfer PSP22 1 tokens to caller : {:?}",
-                                error
-                            )
-                });
+                if PSP22Ref::transfer(&self.psp22_token1_address,caller,actual_psp22_1_deposit_amount,vec![]).is_err(){
+                    return Err(TradingPairErrors::PSP1TransferFailed);
+                }
 
-                PSP22Ref::transfer(
-                    &self.psp22_token2_address,
-                    caller,
-                    actual_psp22_2_deposit_amount,
-                    vec![])
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "Failed to transfer PSP22 2 tokens to caller : {:?}",
-                                error
-                            )
-                });
+                if PSP22Ref::transfer(&self.psp22_token2_address,caller,actual_psp22_2_deposit_amount,vec![]).is_err(){
+                    return Err(TradingPairErrors::PSP2TransferFailed);
+                }
 
                 return Err(TradingPairErrors::ZeroSharesGiven);
 
@@ -320,29 +312,13 @@ pub mod trading_pair_psp22 {
             //validating slippage
             if percentage_diff > slippage.try_into().unwrap() {
 
-                PSP22Ref::transfer(
-                    &self.psp22_token1_address,
-                    caller,
-                    actual_psp22_1_deposit_amount,
-                    vec![])
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "Failed to transfer PSP22 1 tokens to caller : {:?}",
-                                error
-                            )
-                });
+                if PSP22Ref::transfer(&self.psp22_token1_address,caller,actual_psp22_1_deposit_amount,vec![]).is_err(){
+                    return Err(TradingPairErrors::PSP2TransferFailed);
+                }
 
-                PSP22Ref::transfer(
-                    &self.psp22_token2_address,
-                    caller,
-                    actual_psp22_2_deposit_amount,
-                    vec![])
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "Failed to transfer PSP22 2 tokens to caller : {:?}",
-                                error
-                            )
-                });
+                if PSP22Ref::transfer(&self.psp22_token2_address,caller,actual_psp22_2_deposit_amount,vec![]).is_err(){
+                    return Err(TradingPairErrors::PSP2TransferFailed);
+                }
 
 
                 return Err(TradingPairErrors::SlippageTolerance);
@@ -430,30 +406,14 @@ pub mod trading_pair_psp22 {
             };
            
             //cross contract call to PSP22 token1 contract to transfer PSP22 token1 to the caller
-            PSP22Ref::transfer(
-                &self.psp22_token1_address,
-                caller,
-                psp22_token1_amount_to_give,
-                vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                            "Failed to transfer PSP22 1 tokens to caller : {:?}",
-                            error
-                        )
-            });
+            if PSP22Ref::transfer(&self.psp22_token1_address,caller,psp22_token1_amount_to_give,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP1TransferFailed);
+            }
            
             //cross contract call to PSP22 token2 contract to transfer PSP22 token2 to the caller
-            PSP22Ref::transfer(
-                &self.psp22_token2_address,
-                caller,
-                psp22_token2_amount_to_give,
-                vec![])
-                    .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 2 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token2_address,caller,psp22_token2_amount_to_give,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP1TransferFailed);
+            }
 
             //reducing caller LP token balance_caller_shares
             self.balances.insert(caller, &(caller_shares - shares));
@@ -1064,58 +1024,39 @@ pub mod trading_pair_psp22 {
             }
 
             //cross contract call to PSP22 1 contract to transfer PSP22 1 tokens to the Trading Pair contract (self)
-            if PSP22Ref::transfer_from_builder(
-                &self.psp22_token1_address,
-                caller,
-                Self::env().account_id(),
-                psp22_token1_amount_to_swap,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&self.psp22_token1_address,caller,Self::env().account_id(),psp22_token1_amount_to_swap,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed")
                     .is_err(){
                         return Err(TradingPairErrors::PSP1TransferFromFailed);
             }
 
+            let caller_psp1_balance_after_transfer:Balance = PSP22Ref::balance_of(
+                &self.psp22_token1_address,
+                caller
+            );
+    
+            if caller_current_balance == caller_psp1_balance_after_transfer {
+                return Err(TradingPairErrors::CallerInsufficientPSP1Balance);
+            }
+
+
+
             //function to transfer PSP22 2 tokens to caller
-            PSP22Ref::transfer(
-                &self.psp22_token2_address,
-                caller,
-                actual_psp22_token2_amount_out_for_caller,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token2_address,caller,actual_psp22_token2_amount_out_for_caller,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP2TransferFailed);
+            }
 
             //function to transfer PSP22 2 tokens to vault
-            PSP22Ref::transfer(
-                &self.psp22_token2_address,
-                self.vault,
-                psp22_token2_amount_out_for_vault,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token2_address,self.vault,psp22_token2_amount_out_for_vault,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP2TransferFailed);
+            }
 
             //function to transfer PSP22 tokens 1 to vault
-            PSP22Ref::transfer(
-                &self.psp22_token1_address,
-                self.vault,
-                psp22_token1_amount_out_for_vault,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token1_address,self.vault,psp22_token1_amount_out_for_vault,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP1TransferFailed);
+            }
 
 
             //increase num of trans
@@ -1240,61 +1181,40 @@ pub mod trading_pair_psp22 {
 
 
             //cross contract call to PSP22 contract to transfer PSP22 to the Trading Pair contract (self)
-            if PSP22Ref::transfer_from_builder(
-                &self.psp22_token2_address,
-                caller,
-                Self::env().account_id(),
-                psp22_token2_amount_to_swap,
-                vec![])
+            if PSP22Ref::transfer_from_builder(&self.psp22_token2_address,caller,Self::env().account_id(),psp22_token2_amount_to_swap,vec![])
                     .call_flags(CallFlags::default()
                     .set_allow_reentry(true))
                     .try_invoke()
-                    .expect("Transfer failed")
                     .is_err(){
                         return Err(TradingPairErrors::PSP2TransferFromFailed);
             }
 
+            let caller_psp2_balance_after_transfer:Balance = PSP22Ref::balance_of(
+                &self.psp22_token2_address,
+                caller
+            );
+    
+            if caller_current_balance == caller_psp2_balance_after_transfer {
+                return Err(TradingPairErrors::CallerInsufficientPSP2Balance);
+            }
+
 
             //function to transfer PSP22 1 token to caller
-            PSP22Ref::transfer(
-                &self.psp22_token1_address,
-                caller,
-                actual_psp22_token1_amount_out_for_caller,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token1_address,caller,actual_psp22_token1_amount_out_for_caller,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP1TransferFailed);
+            }
 
 
             //function to transfer PSP22 1 token to vault
-            PSP22Ref::transfer(
-                &self.psp22_token1_address,
-                self.vault,
-                psp22_token1_amount_out_for_vault,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token1_address,self.vault,psp22_token1_amount_out_for_vault,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP1TransferFailed);
+            }
 
 
             //function to transfer PSP22 2 token to vault
-            PSP22Ref::transfer(
-                &self.psp22_token2_address,
-                self.vault,
-                psp22_token2_amount_out_for_vault,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            if PSP22Ref::transfer(&self.psp22_token2_address,self.vault,psp22_token2_amount_out_for_vault,vec![]).is_err(){
+                return Err(TradingPairErrors::PSP2TransferFailed);
+            }
 
             //increase num of trans
             self.transasction_number = self.transasction_number + 1;
