@@ -1,6 +1,6 @@
 [package]
-name = "pair_creator"
-version = "1.0.0"
+name = "contract_creator"
+version = "1.1.0"
 authors = ["Yonatan Hornstein <yonatan@panoramaswap.com>"]
 edition = "2021"
 overflow-checks = false
@@ -12,13 +12,14 @@ scale-info = { version = "2.3", default-features = false, features = ["derive"],
 openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag="3.0.0", default-features= false, features = ["psp22"] }
 trading_pair_psp22 = { path = "../trading_pair_psp22",version="1.0.0",default-features = false, features = ["ink-as-dependency"] }
 trading_pair_azero = { path = "../trading_pair_azero",version="1.0.0",default-features = false, features = ["ink-as-dependency"] }
+multi_sig = { path = "../multi_sig",version="1.0.0",default-features = false, features = ["ink-as-dependency"] }
 
 
 
 
 [lib]
 overflow-checks = false
-name = "pair_creator"
+name = "contract_creator"
 path = "lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.

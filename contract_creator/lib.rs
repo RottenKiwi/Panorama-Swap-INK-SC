@@ -9,6 +9,7 @@ pub mod pair_creator {
     use ink::LangError;
     use trading_pair_psp22::TradingPairPsp22Ref;
     use trading_pair_azero::TradingPairAzeroRef;
+    use multi_sig::MultiSigRef;
 
 
     #[ink(storage)]
@@ -123,6 +124,30 @@ pub mod pair_creator {
             let new_pair_address = trading_pair.get_account_id();
 
             Ok(new_pair_address)
+        
+ 
+        }
+
+        #[ink(message,payable)]
+        pub fn create_multi_sig_wallet(
+            &mut self,
+            multi_sig_hash: Hash,
+            version:u32,
+            vault_address:AccountId
+        )   -> Result<AccountId, PairCreatorErrors> {
+
+            
+            let salt = version.to_le_bytes();
+
+            let multi_sig_wallet = MultiSigRef::new(vault_address)
+                        .endowment(0)
+                        .code_hash(multi_sig_hash)
+                        .salt_bytes(salt)
+                        .try_instantiate()??;
+
+            let new_multi_sig_wallet_address = multi_sig_wallet.get_account_id();
+
+            Ok(new_multi_sig_wallet_address)
         
  
         }

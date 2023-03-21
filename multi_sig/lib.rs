@@ -1,7 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#[cfg(not(feature = "ink-as-dependency"))]
 
 
+pub use self::multi_sig::{
+	MultiSig,
+	MultiSigRef,
+};
 
 #[ink::contract]
 pub mod multi_sig {
@@ -52,7 +55,10 @@ pub mod multi_sig {
         number_of_participants: u64,
         number_of_transactions: u64,
         wallet_tokens: Mapping<AccountId,Balance>,
-        wallet_transactions: Mapping<u64,WalletTransaction>
+        wallet_transactions: Mapping<u64,WalletTransaction>,
+        traders_fee:Balance,
+        vault: AccountId,
+        
 
 
     }
@@ -102,7 +108,8 @@ pub mod multi_sig {
         psp22_amount_to_transfer:Balance,
         recipient:AccountId,
         transaction_number:u64,
-        date: Balance
+        date: Balance,
+        
     }
 
     #[ink(event)]
@@ -125,7 +132,9 @@ pub mod multi_sig {
     impl MultiSig {
         /// Creates a new multi-sig wallet contract.
         #[ink(constructor)]
-        pub fn new() -> Self {
+        pub fn new(
+            vault:AccountId
+        )   -> Self {
             
             let deployer = Self::env().caller();
             let mut wallet_participants = Vec::new();
@@ -134,6 +143,7 @@ pub mod multi_sig {
             let wallet_tokens = Mapping::default();
             let wallet_transactions = Mapping::default();
             wallet_participants.push(deployer);
+            let traders_fee:Balance = 25;
             
             Self{
 
@@ -142,8 +152,9 @@ pub mod multi_sig {
                 number_of_participants,
                 number_of_transactions,
                 wallet_tokens,
-                wallet_transactions
-
+                wallet_transactions,
+                traders_fee,
+                vault
             }
             
         }
@@ -596,10 +607,39 @@ pub mod multi_sig {
 
             let transaction_psp22_token_address = transaction.psp22_token_to_transfer;
 
-            let transaction_psp22_token_amount = transaction.psp22_amount_to_transfer;
+            let transaction_psp22_token_amount_before_traders_fee = transaction.psp22_amount_to_transfer;
 
-            //cross contract call to PSP22 contract to transfer PSP2 to transaction recipient
-            if PSP22Ref::transfer(&transaction_psp22_token_address,transaction_recipient_address,transaction_psp22_token_amount,vec![]).is_err(){
+            let psp22_amount_for_vault:Balance;
+
+            //calculating the amount of tokens to allocate to the vault account
+            match  (transaction_psp22_token_amount_before_traders_fee * self.traders_fee).checked_div(1000u128)  {
+                Some(result) => {
+                    psp22_amount_for_vault = result;
+                }
+                None => {
+                    return Err(MultiSigErrors::Overflow);
+                }
+            };
+
+            //cross contract call to PSP22 contract to transfer tokens to vault account
+            if PSP22Ref::transfer(&transaction_psp22_token_address,self.vault,psp22_amount_for_vault,vec![]).is_err(){
+                return Err(MultiSigErrors::PSP22TransferFailed);
+            }
+
+            let actual_psp22_amount_to_transfer_to_recipient:Balance;
+
+            //calculating the amount of tokens to allocate to the recipient
+            match  transaction_psp22_token_amount_before_traders_fee.checked_sub(psp22_amount_for_vault)  {
+                Some(result) => {
+                    actual_psp22_amount_to_transfer_to_recipient = result;
+                }
+                None => {
+                    return Err(MultiSigErrors::Overflow);
+                }
+            };
+
+            //cross contract call to PSP22 contract to transfer tokens to transaction recipient
+            if PSP22Ref::transfer(&transaction_psp22_token_address,transaction_recipient_address,actual_psp22_amount_to_transfer_to_recipient,vec![]).is_err(){
                 return Err(MultiSigErrors::PSP22TransferFailed);
             }
 
@@ -612,7 +652,7 @@ pub mod multi_sig {
 
             let new_psp22_balance:Balance;
 
-            match psp22_current_balance.checked_sub(transaction_psp22_token_amount) {
+            match psp22_current_balance.checked_sub(transaction_psp22_token_amount_before_traders_fee) {
                 Some(result) => {
                     new_psp22_balance = result;
                 }
@@ -657,10 +697,11 @@ pub mod multi_sig {
 
         }
 
+        ///function to get multi_sig contract address (self)
         #[ink(message)]
-        pub fn get_wallet_address(
+        pub fn get_account_id(
             &self
-        )   -> AccountId {
+        ) -> AccountId {
 
             Self::env().account_id()
 
