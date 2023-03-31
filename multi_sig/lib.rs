@@ -336,6 +336,9 @@ pub mod multi_sig {
             }
 
             let new_transaction_number= current_transactions_number + 1;
+            
+            //Update `number_of_transactions` in storage so that we can return exact no of transaction in `get_number_of_transactions()`
+            self.number_of_transactions = new_transaction_number;
 
             let transaction =  WalletTransaction {
 
@@ -462,6 +465,10 @@ pub mod multi_sig {
             let new_number_of_approvals = transaction.number_of_approvals + 1;
 
             transaction.number_of_approvals = new_number_of_approvals;
+
+            //Update mapping after adding `new_number_of_approvals` in `number_of_approvals`
+            self.wallet_transactions.insert(number_of_transaction, &transaction);
+
             
             let transaction_number = transaction.transaction_number;
 
@@ -645,6 +652,10 @@ pub mod multi_sig {
 
 
             transaction.completed_transaction = true;
+            
+            //Update mapping so that `completed_transaction` get updated in transaction
+            self.wallet_transactions.insert(transaction.transaction_number, &transaction);
+
 
             let psp22_current_balance:Balance = self.wallet_tokens
                 .get(&transaction_psp22_token_address)
