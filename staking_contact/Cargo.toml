@@ -16,7 +16,6 @@ openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag="
 
 
 [lib]
-overflow-checks = false
 name = "stacking_contract"
 path = "lib.rs"
 crate-type = [
@@ -24,9 +23,9 @@ crate-type = [
 	"cdylib"
 ]
 [profile.release]
+
+
 overflow-checks = false
-
-
 [features]
 default = ["std"]
 std = [

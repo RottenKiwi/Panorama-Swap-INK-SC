@@ -16,3 +16,7 @@ Cargo.lock
 **/staking_contract
 /staking_contract/
 */staking_contract
+
+*/lp_rewards
+**/lp_rewards
+/staking_contract/

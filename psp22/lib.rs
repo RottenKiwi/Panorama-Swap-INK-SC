@@ -9,9 +9,10 @@ pub mod my_psp22 {
         contracts::psp22::extensions::metadata::*,
         traits::{
             Storage,
-            String,
+            String
         },
     };
+
 
     #[ink(storage)]
     #[derive(Default, Storage)]

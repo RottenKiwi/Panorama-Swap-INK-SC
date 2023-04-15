@@ -28,7 +28,26 @@ pub mod staking_contract {
         balances: Mapping<AccountId, Balance>,
         panx_to_give_in_a_day: Mapping<AccountId, Balance>,
         last_redeemed:Mapping<AccountId, u64>,
+        staking_percentage:Balance
 
+
+    }
+
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
+    pub enum StakingErrors {
+        CallerInsufficientPSP22Balance,
+        NotEnoughAllowance,
+        Overflow,
+        ZeroSharesGiven,
+        SlippageTolerance,
+        PSP22TransferFromFailed,
+        PSP22TransferFailed,
+        A0TransferFailed,
+        CallerInsufficientLPBalance,
+        ContractOutOfA0,
+        ContractOutOfPSP22,
+        NotEnoughOwnerLPAllowance
 
     }
 
@@ -43,6 +62,7 @@ pub mod staking_contract {
             let balances = Mapping::default();
             let panx_to_give_in_a_day = Mapping::default();
             let last_redeemed = Mapping::default();
+            let staking_percentage = 7;
 
             Self{
                 manager,
@@ -50,7 +70,8 @@ pub mod staking_contract {
                 started_date_in_timestamp,
                 balances,
                 panx_to_give_in_a_day,
-                last_redeemed
+                last_redeemed,
+                staking_percentage
             }
            
         }
@@ -61,7 +82,7 @@ pub mod staking_contract {
         pub fn add_to_staking(
             &mut self,
             panx_to_lock:Balance
-        ) {
+        )   -> Result<(), StakingErrors> {
 
             let caller = self.env().caller();
 
@@ -76,6 +97,7 @@ pub mod staking_contract {
 
             let tokens_to_validate:Balance = 1000*10u128.pow(12);
 
+            //first time staking
             if caller_current_panx_balance >= tokens_to_validate && caller_locked_balance == 0  {
 
                 //validates if the the allowance is equal or greater than the deposit PANX amount
@@ -125,10 +147,18 @@ pub mod staking_contract {
                 //add PANX allocation to caller
                 self.balances.insert(caller, &new_balance);
 
-                let actual_staking_percentage:Balance = 70000000000 / 10u128.pow(12);
-
                 //calc how many tokens to give in a day
-                let amount_to_give_each_day:Balance = (new_balance + (new_balance * actual_staking_percentage )) / 365  ;
+                let amount_to_give_each_day:Balance;
+
+                //calculating the amount of daily PANX to give to the user
+                match ((new_balance * self.staking_percentage) / 100u128 ).checked_div(365) {
+                    Some(result) => {
+                        amount_to_give_each_day = result;
+                    }
+                    None => {
+                        return Err(StakingErrors::Overflow);
+                    }
+                };
 
                 //insert the daily amount to caller
                 self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
@@ -138,7 +168,7 @@ pub mod staking_contract {
 
                 if caller_last_redeem > 0 {
 
-                    //Insert the current date as last redeem date for callerdddddccccccccc.
+                    //Insert the current date as last redeem date for caller.
                     self.last_redeemed.insert(caller, &self.get_current_timestamp());
                    
                 }
@@ -218,6 +248,8 @@ pub mod staking_contract {
             )
 
            }
+
+           Ok(())
         }
 
 

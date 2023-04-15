@@ -20,8 +20,7 @@ pub mod trading_pair_psp22 {
     use ink::storage::Mapping;
     use ink::env::CallFlags;
     use ink::prelude::vec;
-
-
+    use openbrush::traits::Storage;
         
     
     #[ink(storage)]
