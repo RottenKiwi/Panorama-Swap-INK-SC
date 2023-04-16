@@ -23,12 +23,13 @@ pub mod staking_contract {
     pub struct StakingContract {
         
         manager: AccountId,
-        panx_psp22: AccountId,
+        psp22_contract: AccountId,
         started_date_in_timestamp:Balance,
         balances: Mapping<AccountId, Balance>,
-        panx_to_give_in_a_day: Mapping<AccountId, Balance>,
+        psp22_to_give_in_a_day: Mapping<AccountId, Balance>,
         last_redeemed:Mapping<AccountId, u64>,
-        staking_percentage:Balance
+        staking_percentage:Balance,
+        account_overall_taken_rewards:Mapping<AccountId, Balance>,
 
 
     }
@@ -37,217 +38,228 @@ pub mod staking_contract {
     #[cfg_attr(feature = "std", derive(::scale_info::TypeInfo))]
     pub enum StakingErrors {
         CallerInsufficientPSP22Balance,
+        CallerInsufficientPSP22LockedBalance,
+        NoRedeemableAmount,
+        ZeroDaysPassed,
+        NotEnoghtPSP22ToLock,
         NotEnoughAllowance,
         Overflow,
-        ZeroSharesGiven,
-        SlippageTolerance,
         PSP22TransferFromFailed,
         PSP22TransferFailed,
-        A0TransferFailed,
-        CallerInsufficientLPBalance,
-        ContractOutOfA0,
-        ContractOutOfPSP22,
-        NotEnoughOwnerLPAllowance
+        LessThanMinimumRequired
 
     }
 
     impl StakingContract {
         #[ink(constructor)]
-        pub fn new(panx_contract:AccountId) -> Self {
+        pub fn new(psp22_contract:AccountId) -> Self {
             
 
             let manager:AccountId = Self::env().caller();
-            let panx_psp22:AccountId = panx_contract;
+            let psp22_contract:AccountId = psp22_contract;
             let started_date_in_timestamp:Balance = Self::env().block_timestamp().into();
             let balances = Mapping::default();
-            let panx_to_give_in_a_day = Mapping::default();
+            let psp22_to_give_in_a_day = Mapping::default();
             let last_redeemed = Mapping::default();
-            let staking_percentage = 7;
+            let staking_percentage = 5;
+            let account_overall_taken_rewards = Mapping::default(); 
 
             Self{
                 manager,
-                panx_psp22,
+                psp22_contract,
                 started_date_in_timestamp,
                 balances,
-                panx_to_give_in_a_day,
+                psp22_to_give_in_a_day,
                 last_redeemed,
-                staking_percentage
+                staking_percentage,
+                account_overall_taken_rewards
             }
            
         }
 
-
-        ///Function to add caller into the staking program
+        //function to add the caller to the staking program or to update his allocations
         #[ink(message)]
         pub fn add_to_staking(
             &mut self,
-            panx_to_lock:Balance
+            psp22_to_lock:Balance
         )   -> Result<(), StakingErrors> {
 
+            // Get the caller's account ID
             let caller = self.env().caller();
 
-            //fetching user current PSP22 balance
-            let caller_current_panx_balance = PSP22Ref::balance_of(
-                &self.panx_psp22,
+            // Get the current PSP22 token balance of the caller from the PSP22 contract
+            let caller_current_psp22_balance = PSP22Ref::balance_of(
+                &self.psp22_contract,
                 caller
             );
 
-            //get current caller balance (If any)
-            let caller_locked_balance:Balance = self.balances.get(&caller).unwrap_or(0);
+            // Get the locked PSP22 token balance of the caller from the local balances storage
+            let caller_locked_psp22_balance:Balance = self.balances.get(&caller).unwrap_or(0);
 
-            let tokens_to_validate:Balance = 1000*10u128.pow(12);
+            // Set the minimum PSP22 tokens required to enter staking
+            let minimum_psp22_tokens_to_enter:Balance = 1000*10u128.pow(12);
 
-            //first time staking
-            if caller_current_panx_balance >= tokens_to_validate && caller_locked_balance == 0  {
+            // Check if the caller's current PSP22 balance is greater than or equal to the minimum tokens required to enter
+            // staking, and if the caller's locked PSP22 balance is zero
+            if caller_current_psp22_balance >= minimum_psp22_tokens_to_enter && caller_locked_psp22_balance == 0  {
 
-                //validates if the the allowance is equal or greater than the deposit PANX amount
+                if psp22_to_lock < minimum_psp22_tokens_to_enter {
+                    return Err(StakingErrors::NotEnoghtPSP22ToLock);
+                }
+
+                // Get the allowance given by the caller to this contract in the PSP22 contract
                 let contract_allowance = PSP22Ref::allowance(
-                    &self.panx_psp22,
+                    &self.psp22_contract,
                     caller,
                     Self::env().account_id()
                 );
-               
-                //validates if the contract has sufficent allowance.
-                if contract_allowance < panx_to_lock {
-                    panic!(
-                        "Not enough allowance, please make sure you approved the correct amount
-                        before adding to staking program."
-                    )
-                }
-               
-                //validates if the caller has enought PANX to lock
-                if caller_current_panx_balance < panx_to_lock {
-                    panic!(
-                        "Caller does not have enough PANX tokens to lock,
-                        kindly re-adjust deposit PANX amount."
-                    )
+
+                // Check if the allowance is less than the PSP22 tokens to be locked
+                if contract_allowance < psp22_to_lock {
+                    return Err(StakingErrors::NotEnoughAllowance);
                 }
 
-                //transfers PANX from caller to staking contract
-                PSP22Ref::transfer_from_builder(
-                    &self.panx_psp22,
-                    caller,
-                    Self::env().account_id(),
-                    panx_to_lock,
-                    vec![])
+                // Check if the caller's current PSP22 balance is less than the PSP22 tokens to be locked
+                if caller_current_psp22_balance < psp22_to_lock {
+                    return Err(StakingErrors::CallerInsufficientPSP22Balance);
+                }
+
+                // Transfer the PSP22 tokens from the caller to this contract using the transfer_from_builder method
+                if PSP22Ref::transfer_from_builder(&self.psp22_contract,caller,Self::env().account_id(),psp22_to_lock,vec![])
                         .call_flags(CallFlags::default()
                         .set_allow_reentry(true))
                         .try_invoke()
-                        .expect("Transfer failed")
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "Failed to transfer PSP22 tokens to staking contract : {:?}",
-                                error
-                            )
-                });
+                        .is_err(){
+                            return Err(StakingErrors::PSP22TransferFromFailed);
+                }
 
-                //variable to hold current amount of locked PANX
-                let new_balance:Balance = caller_locked_balance + panx_to_lock;
+                // Get the caller's PSP22 balance after the transfer
+                let caller_psp22_balance_after_transfer = PSP22Ref::balance_of(
+                    &self.psp22_contract,
+                    caller
+                );
 
-                //add PANX allocation to caller
-                self.balances.insert(caller, &new_balance);
+                // Check if the caller's PSP22 balance is the same after the transfer, indicating a failed transfer
+                if caller_psp22_balance_after_transfer == caller_current_psp22_balance {
+                    return Err(StakingErrors::PSP22TransferFromFailed);
+                }
 
-                //calc how many tokens to give in a day
-                let amount_to_give_each_day:Balance;
+                // Calculate the new locked balance of the caller by adding the PSP22 tokens to be locked
+                let new_locked_balance:Balance;
 
-                //calculating the amount of daily PANX to give to the user
-                match ((new_balance * self.staking_percentage) / 100u128 ).checked_div(365) {
+                // Check for potential overflow during the calculation
+                match caller_locked_psp22_balance.checked_add(psp22_to_lock) {
                     Some(result) => {
-                        amount_to_give_each_day = result;
+                        new_locked_balance = result;
                     }
                     None => {
                         return Err(StakingErrors::Overflow);
                     }
                 };
 
-                //insert the daily amount to caller
-                self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
+                // Update the caller's locked PSP22 balance in the local balances storage
+                self.balances.insert(caller, &new_locked_balance);
 
-                //get the last redeem date by timestamp, if caller didnt redeem yet, return 0.
-                let caller_last_redeem = self.last_redeemed.get(&caller).unwrap_or(0);
+                // Calculate the amount of PSP22 tokens to be given to the caller each day
+                let amount_of_psp22_tokens_to_give_each_day:Balance;
 
-                if caller_last_redeem > 0 {
+                // Check for potential overflow during the calculation
+                match ((new_locked_balance * self.staking_percentage) / 100u128 ).checked_div(365) {
+                    Some(result) => {
+                        amount_of_psp22_tokens_to_give_each_day = result;
+                    }
+                    None => {
+                        return Err(StakingErrors::Overflow);
+                    }
+                };
 
-                    //Insert the current date as last redeem date for caller.
-                    self.last_redeemed.insert(caller, &self.get_current_timestamp());
+                // Update the amount of PSP22 tokens to be given to the caller each day in the local storage
+                self.psp22_to_give_in_a_day.insert(caller,&amount_of_psp22_tokens_to_give_each_day);
+
+                self.last_redeemed.insert(caller, &self.get_current_timestamp());
                    
-                }
 
+            }
 
+            // Check if the caller's locked PSP22 balance is greater than 0
+            if caller_locked_psp22_balance > 0  {
 
-           }
-
-            if caller_locked_balance > 0{
-
-                //validates if the the allowance is equal or greatee than the deposit PANX amount
+                // Get the contract allowance for the caller
                 let contract_allowance = PSP22Ref::allowance(
-                    &self.panx_psp22,
+                    &self.psp22_contract,
                     caller,
                     Self::env().account_id()
                 );
 
-                //validates if the contract has sufficent allowance.
-                if contract_allowance < panx_to_lock {
-                    panic!(
-                        "Not enough allowance, please make sure you approved the correct amount of PANX
-                        tokens before adding to staking program."
-                    )
+                // Check if the contract allowance is less than the amount to lock
+                if contract_allowance < psp22_to_lock {
+                    return Err(StakingErrors::NotEnoughAllowance);
                 }
 
-
-                //validates if the caller has enought PANX to lock
-                if caller_current_panx_balance < panx_to_lock {
-                    panic!(
-                        "Caller does not have enough PANX tokens to lock,
-                        kindly re-adjust deposit PANX amount."
-                    )
+                // Check if the caller's current PSP22 balance is less than the amount to lock
+                if caller_current_psp22_balance < psp22_to_lock {
+                    return Err(StakingErrors::CallerInsufficientPSP22Balance);
                 }
 
-                //transfers PANX from caller to staking contract
-                PSP22Ref::transfer_from_builder(
-                    &self.panx_psp22,
-                    caller,
-                    Self::env().account_id(),
-                    panx_to_lock, 
-                    vec![])
+                // Transfer the PSP22 tokens from the caller to this contract using the transfer_from_builder method
+                if PSP22Ref::transfer_from_builder(&self.psp22_contract,caller,Self::env().account_id(),psp22_to_lock,vec![])
                         .call_flags(CallFlags::default()
                         .set_allow_reentry(true))
                         .try_invoke()
-                        .expect("Transfer failed")
-                        .unwrap_or_else(|error| {
-                            panic!(
-                                "Failed to transfer PSP22 tokens to staking contract : {:?}",
-                                error
-                            )
-                });
-                
-               //variable to hold current amount of locked PANX
-                let new_balance:Balance = caller_locked_balance + panx_to_lock;
+                        .is_err(){
+                            return Err(StakingErrors::PSP22TransferFromFailed);
+                }
 
-                //add PANX allocation to caller
-                self.balances.insert(caller, &new_balance);
+                // Get the caller's PSP22 balance after the transfer
+                let caller_psp22_balance_after_transfer = PSP22Ref::balance_of(
+                    &self.psp22_contract,
+                    caller
+                );
 
-                let actual_staking_percentage:Balance = 70000000000 / 10u128.pow(12);
+                // Check if the caller's PSP22 balance after the transfer is same as the current balance
+                if  caller_psp22_balance_after_transfer == caller_current_psp22_balance {
+                    return Err(StakingErrors::PSP22TransferFromFailed);
+                }
 
-                //calc how many tokens to give in a day
-                let amount_to_give_each_day:Balance = (new_balance + (new_balance * actual_staking_percentage)) / 365  ;
+                // Calculate the new locked balance of the caller by adding the PSP22 tokens to be locked
+                let new_locked_balance:Balance;
 
-                //insert the daily amount to caller
-                self.panx_to_give_in_a_day.insert(caller,&amount_to_give_each_day);
+                // Check for potential overflow during the calculation
+                match caller_locked_psp22_balance.checked_add(psp22_to_lock) {
+                    Some(result) => {
+                        new_locked_balance = result;
+                    }
+                    None => {
+                        return Err(StakingErrors::Overflow);
+                    }
+                };
 
+                // Update the caller's balances with the new locked balance
+                self.balances.insert(caller, &new_locked_balance);
 
-           }
+                // Define a variable to hold the amount to give each day
+                let amount_of_psp22_tokens_to_give_each_day:Balance;
 
-           let tokens_to_validate:Balance = 1000*10u128.pow(12);
+                // Calculate the amount to give each day based on the new locked balance and staking percentage
+                match ((new_locked_balance * self.staking_percentage) / 100u128).checked_div(365) {
+                    Some(result) => {
+                        amount_of_psp22_tokens_to_give_each_day = result;
+                    }
+                    None => {
+                        return Err(StakingErrors::Overflow);
+                    }
+                };
 
-           if caller_current_panx_balance < tokens_to_validate && caller_locked_balance == 0 {
+                // Update the PSP22 to give in a day for the caller with the calculated amount
+                self.psp22_to_give_in_a_day.insert(caller,&amount_of_psp22_tokens_to_give_each_day);
+            
+            }
 
-            panic!(
-                "Caller has less than 1,000 PANX,
-                cannot add to staking program."
-            )
+            if caller_current_psp22_balance < minimum_psp22_tokens_to_enter && caller_locked_psp22_balance == 0 {
 
-           }
+                return Err(StakingErrors::LessThanMinimumRequired);
+
+            }
 
            Ok(())
         }
@@ -257,49 +269,55 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn get_redeemable_amount(
             &mut self
-        ) -> Balance {
+        )   -> Result<Balance, StakingErrors> {
 
             
-            //call address 
-            let caller = self.env().caller();
-            //current timestamp
-            let current_tsp = self.get_current_timestamp();
-            //caller total locked PANX amount
-            let caller_total_locked_amount:Balance = self.get_caller_total_locked_amount(caller);
+            // Get the caller's address
+            let caller = self.env().caller(); 
 
+            // Get the current timestamp from the contract
+            let current_tsp = self.get_current_timestamp(); 
         
-            //last time caller redeemed tokens
-            let last_redeemed = self.last_redeemed.get(caller).unwrap_or(0);
-            //How many PANX tokens to give to caller each day
-            let panx_to_give_each_day:Balance = self.panx_to_give_in_a_day.get(caller).unwrap_or(0);
-            //days since last redeem
-            let days_diff = (current_tsp - last_redeemed) / 86400;
-            //making sure that 24 hours has passed since last redeem
-            if days_diff <= 0 {
-                panic!(
-                     "0 Days passed since the last redeem,
-                     kindly wait 24 hours after redeem."
-                )
-                }
-            //making sure that caller has more then 0 PANX to redeem
-            if caller_total_locked_amount <= 0 {
-                panic!(
-                     "Caller has balance of 0 locked tokens. "
-                )
-                }
-            //amount to give to caller
-            let mut panx_redeemable_amount:Balance = panx_to_give_each_day * days_diff as u128;
-
-
-            //if caller has less tokens from the daily amount, give him the rest of tokens
-            if panx_redeemable_amount > caller_total_locked_amount{
-
-                panx_redeemable_amount = caller_total_locked_amount
-            }
-
-            panx_redeemable_amount
-
+            // Get the total locked PSP22 balance of the caller
+            let caller_total_locked_psp22_balance:Balance = self.get_caller_total_locked_amount(caller); 
+        
+            // Get the last redeemed timestamp of the caller, or 0 if it doesn't exist
+            let last_redeemed = self.last_redeemed.get(caller).unwrap_or(0); 
+        
+            // Get the amount of PSP22 to give each day to the caller, or 0 if it doesn't exist
+            let psp22_to_give_each_day:Balance = self.psp22_to_give_in_a_day.get(caller).unwrap_or(0); 
+        
+            // Declare a variable to hold the difference in days between current timestamp and last redeemed timestamp
+            let days_difference:u64; 
             
+            // Calculate the difference in days by dividing the difference between current timestamp and last redeemed timestamp by 86400 (number of seconds in a day)
+            match (current_tsp - last_redeemed).checked_div(86400) { 
+                Some(result) => {
+                    days_difference = result; 
+                }
+                None => {
+                    // If the division results in overflow, return an error of StakingErrors::Overflow
+                    return Err(StakingErrors::Overflow); 
+                }
+            };
+            
+            // Check if days_difference is less than or equal to 0
+            // If so, return an error of StakingErrors::ZeroDaysPassed
+            if days_difference <= 0 { 
+                return Err(StakingErrors::ZeroDaysPassed); 
+            }
+        
+            // Check if caller's total locked PSP22 balance is less than or equal to 0
+            // If so, return an error of StakingErrors::CallerInsufficientPSP22LockedBalance
+            if caller_total_locked_psp22_balance <= 0 { 
+                return Err(StakingErrors::CallerInsufficientPSP22LockedBalance); 
+            }
+            
+            // Calculate the redeemable amount of PSP22 by multiplying the PSP22 to give each day by the days difference, and convert it to u128 to avoid overflow
+            let psp22_redeemable_amount:Balance = psp22_to_give_each_day * days_difference as u128; 
+        
+            // Return the redeemable amount as a Result::Ok
+            Ok(psp22_redeemable_amount) 
 
         }
 
@@ -307,32 +325,35 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn redeem_redeemable_amount(
             &mut self
-        ) {
+        )   -> Result<(), StakingErrors> {
 
-            
-            //caller address
+             // Get the caller's address
             let caller = self.env().caller();
-            //caller timestamp
-            let current_tsp = self.get_current_timestamp();
 
-            //variable to hold redeemable panx amount
-            let panx_redeemable_amount:Balance = self.get_redeemable_amount();
+            // Get the current timestamp from the contract
+            let current_tsp = self.get_current_timestamp(); 
+            
+            // Get the redeemable amount of PSP22 from the get_redeemable_amount function, or 0 if it fails
+            let psp22_redeemable_amount:Balance = self.get_redeemable_amount().unwrap_or(0); 
 
-            //cross contract call to PANX contract to transfer PANX to caller
-            PSP22Ref::transfer(
-                &self.panx_psp22,
-                caller,
-                panx_redeemable_amount,
-                vec![])
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                    )
-            });
+            // Check if the redeemable amount is less than or equal to 0
+            // If so, return an error of StakingErrors::Overflow
+            if psp22_redeemable_amount <= 0 { 
+                return Err(StakingErrors::NoRedeemableAmount); 
+            }
 
-            //Making sure to set his last redeem to current timestamp
-            self.last_redeemed.insert(caller,&current_tsp);
+            // Call the transfer function of PSP22Ref contract to transfer PSP22 tokens from the contract to the caller
+            // If the transfer fails, return an error of StakingErrors::PSP22TransferFailed
+            if PSP22Ref::transfer(&self.psp22_contract,caller,psp22_redeemable_amount,vec![]).is_err(){ 
+                return Err(StakingErrors::PSP22TransferFailed); 
+            }
+
+            self.account_overall_taken_rewards.insert(&caller, &psp22_redeemable_amount);
+
+            // Insert the current timestamp as the last redeemed timestamp for the caller in the last_redeemed storage mapping
+            self.last_redeemed.insert(caller,&current_tsp); 
+
+            Ok(())
 
         }
 
@@ -340,139 +361,156 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn auto_stack(
             &mut self
-        ) {
+        )   -> Result<(), StakingErrors> {
 
-            
-            //caller address
+            // Get the caller's address
             let caller = self.env().caller();
 
-            //caller timestamp
+            // Get the current timestamp from the contract
             let current_tsp = self.get_current_timestamp();
+        
+            // Get the total locked amount of PSP22 for the caller
+            let caller_total_psp22_locked_amount:Balance = self.get_caller_total_locked_amount(caller); 
+        
+            // Get the redeemable amount of PSP22 from the get_redeemable_amount function, or 0 if it fails
+            let psp22_redeemable_amount:Balance = self.get_redeemable_amount().unwrap_or(0); 
+        
+            // Check if the redeemable amount is less than or equal to 0
+            // If so, return an error of StakingErrors::Overflow
+            if psp22_redeemable_amount <= 0 { 
+                return Err(StakingErrors::NoRedeemableAmount); 
+            }
 
-            //caller total locked PANX 
-            let caller_total_locked_amount:Balance = self.get_caller_total_locked_amount(caller);
+            // Insert the current timestamp as the last redeemed timestamp for the caller in the last_redeemed storage mapping
+            self.last_redeemed.insert(caller,&current_tsp); 
+        
+            // Calculate the new total locked amount of PSP22 for the caller after redeeming
+            let new_psp22_locked_balance:Balance = caller_total_psp22_locked_amount + psp22_redeemable_amount;
+        
+            // Declare a new variable to store the new amount of PSP22 to give each day
+            let new_amount_of_psp22_to_give_each_day:Balance; 
+        
+            // Calculate the new amount of PSP22 to give each day based on the staking percentage and the new locked balance
+            // If the calculation fails, return an error of StakingErrors::Overflow
+            match ((new_psp22_locked_balance * self.staking_percentage) / 100u128 ).checked_div(365) { 
+                Some(result) => {
+                    new_amount_of_psp22_to_give_each_day = result;
+                }
+                None => {
+                    return Err(StakingErrors::Overflow); 
+                }
+            };
+        
+            // Insert the new amount of PSP22 to give each day for the caller in the psp22_to_give_in_a_day storage mapping
+            self.psp22_to_give_in_a_day.insert(caller,&new_amount_of_psp22_to_give_each_day); 
+        
+            // Update the caller's PSP22 locked balance in the balances storage mapping
+            self.balances.insert(caller, &new_psp22_locked_balance); 
 
-            let amount_redeemable_amount:Balance = self.get_redeemable_amount();
-
-            //variable to hold current amount of locked PANX
-            let new_balance:Balance = caller_total_locked_amount + amount_redeemable_amount;
-
-            let actual_staking_percentage:Balance = 70000000000 / 10u128.pow(12);
-
-            //calc how many tokens to give in a day
-            let new_amount_to_give_each_day:Balance = (new_balance + (new_balance * actual_staking_percentage)) / 365;
-
-            //insert the daily amount to caller
-            self.panx_to_give_in_a_day.insert(caller,&new_amount_to_give_each_day);
-
-            //make sure to increase overall amount
-            self.balances.insert(caller, &(caller_total_locked_amount +  amount_redeemable_amount));
-
-            //Making sure to set his last redeem to current timestamp
-            self.last_redeemed.insert(caller,&current_tsp);
+            self.account_overall_taken_rewards.insert(&caller, &psp22_redeemable_amount);
+            
+            // Return a success result
+            Ok(()) 
 
         }
 
-       ///Function to withdraw specific amount of locked PANX given from the front-end.
-       #[ink(message,payable)]
-       pub fn withdraw_specific_amount(
-        &mut self,
-        amount_of_tokens: u128
-    )  {
+        ///Function to withdraw specific amount of locked PANX given from the front-end.
+        #[ink(message,payable)]
+        pub fn withdraw_specific_amount(
+            &mut self,
+            amount_of_tokens_to_withdraw: Balance
+        )   -> Result<(), StakingErrors> {
           
-           //caller address
-           let caller = self.env().caller();
+            // Get the caller's address
+            let caller = self.env().caller(); 
 
-           //caller total LP shares
-           let caller_locked_tokens = self.balances.get(&caller).unwrap_or(0);
-
-           //variable to hold redeemable panx amount
-           let panx_redeemable_amount = self.get_redeemable_amount();
-
-           //Validating that the caller has the given number of locked tokens.
-           if (caller_locked_tokens + panx_redeemable_amount) < amount_of_tokens {
-            panic!(
-                 "Caller does not have the amount of requested PANX to withdraw. "
-            )
+            // Get the total locked amount of PSP22 for the caller from the balances storage mapping, or 0 if it fails
+            let caller_total_psp22_locked_amount = self.balances.get(&caller).unwrap_or(0); 
+            
+            // Check if the caller's locked PSP22 balance is less than the amount of tokens to withdraw
+            // If so, return an error of StakingErrors::CallerInsufficientPSP22LockedBalance
+            if caller_total_psp22_locked_amount < amount_of_tokens_to_withdraw { 
+                return Err(StakingErrors::CallerInsufficientPSP22LockedBalance); 
             }
 
-           //Amount of panx to give to the caller
-           let amount_of_panx_to_give = amount_of_tokens;
+            // Calculate the new total locked amount of PSP22 for the caller after withdrawing
+            let new_psp22_locked_balance = caller_total_psp22_locked_amount - amount_of_tokens_to_withdraw; 
+            
+            // Update the caller's PSP22 locked balance in the balances storage mapping
+            self.balances.insert(caller, &new_psp22_locked_balance); 
+            
+            // Declare a new variable to store the new amount of PSP22 to give each day
+            let new_amount_to_give_each_day:Balance; 
+            
+            // Calculate the new amount of PSP22 to give each day based on the staking percentage and the new locked balance
+            // If the calculation fails, return an error of StakingErrors::Overflow
+            match ((new_psp22_locked_balance * self.staking_percentage) / 100u128 ).checked_div(365) { 
+                Some(result) => {
+                    new_amount_to_give_each_day = result; 
+                }
+                None => {
+                    return Err(StakingErrors::Overflow); 
+                }
+            };
+            
+            // Insert the new amount of PSP22 to give each day for the caller in the psp22_to_give_in_a_day storage mapping
+            self.psp22_to_give_in_a_day.insert(caller,&new_amount_to_give_each_day); 
+            
+            // Attempt to transfer the withdrawn PSP22 tokens to the caller
+            // If the transfer fails, return an error of StakingErrors::PSP22TransferFailed
+            if PSP22Ref::transfer(&self.psp22_contract,caller,amount_of_tokens_to_withdraw,vec![]).is_err(){ 
+                return Err(StakingErrors::PSP22TransferFailed); 
+            }
+            
+            // Return a success result
+            Ok(()) 
 
-           //variable to hold new locked PANX balance
-           let new_locked_balance = caller_locked_tokens - amount_of_panx_to_give;
+        }
 
-           //reducing caller locked balance
-           self.balances.insert(caller, &new_locked_balance);
-
-           let actual_staking_percentage:Balance = 70000000000 / 10u128.pow(12);
-
-           //calc how many tokens to give in a day
-           let new_amount_to_give_each_day = (new_locked_balance + (new_locked_balance * actual_staking_percentage)) / 365 ;
-
-           //insert the daily amount to caller
-           self.panx_to_give_in_a_day.insert(caller,&new_amount_to_give_each_day);
-
-           //cross contract call to PANX contract to transfer PANX to the caller
-           PSP22Ref::transfer(
-                &self.panx_psp22,
-                caller,
-                amount_of_panx_to_give,
-                vec![])
-                    .unwrap_or_else(|error| {
-                        panic!(
-                        "Failed to transfer PSP22 tokens to caller : {:?}",
-                        error
-                        )
-            });
-           let current_tsp = self.get_current_timestamp();
-
-           //Making sure to set his last redeem to current timestamp
-           self.last_redeemed.insert(caller,&current_tsp);
-           
-
-       }
         ///function to get caller total locked tokens
         #[ink(message)]
         pub fn get_caller_total_locked_amount(
             &mut self,
             caller:AccountId
-        )-> Balance  {
+        )   -> Balance  {
         
            let caller_balance:Balance = self.balances.get(&caller).unwrap_or(0);
            caller_balance
 
         }
+
         ///funtion to get caller last redeem in timestamp
         #[ink(message)]
         pub fn get_caller_last_redeem(
             &mut self,
             caller:AccountId
-        )->u64  {
+        )   ->u64  {
         
            let time_stamp = self.last_redeemed.get(&caller).unwrap_or(0);
            time_stamp
 
         }
+
         ///function to get the amount of tokens to give to caller each day.
         #[ink(message)]
         pub fn get_amount_to_give_each_day_to_caller(
             &mut self,
             caller:AccountId
-        )-> Balance  {
+        )   -> Balance  {
         
-           let caller_balance:Balance = self.panx_to_give_in_a_day.get(&caller).unwrap_or(0);
+           let caller_balance:Balance = self.psp22_to_give_in_a_day.get(&caller).unwrap_or(0);
            caller_balance
 
         }
+
         ///funtion to get staking contract PANX reserve
         #[ink(message)]
         pub fn get_staking_contract_panx_reserve(
             &self
-        )-> Balance  {
+        )   -> Balance  {
         
             let staking_contract_reserve:Balance = PSP22Ref::balance_of(
-                &self.panx_psp22,
+                &self.psp22_contract,
                 Self::env().account_id()
             );
             staking_contract_reserve
@@ -484,7 +522,7 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn get_started_date(
             &self
-        ) -> Balance {
+        )   -> Balance {
 
             let timestamp = self.started_date_in_timestamp;
             timestamp.into()
@@ -496,7 +534,7 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn get_current_timestamp(
             &self
-        ) -> u64 {
+        )   -> u64 {
 
             let time_stamp_in_seconds = self.env().block_timestamp() / 1000;
             time_stamp_in_seconds
@@ -508,7 +546,7 @@ pub mod staking_contract {
         #[ink(message)]
         pub fn get_days_passed_since_issue(
             &self
-        ) -> Balance {
+        )   -> Balance {
 
             let current_tsp:Balance = (self.env().block_timestamp() / 1000).into();
 

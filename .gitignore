@@ -13,9 +13,6 @@ gensrc
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
 Cargo.lock
 
-**/staking_contract
-/staking_contract/
-*/staking_contract
 
 */lp_rewards
 **/lp_rewards

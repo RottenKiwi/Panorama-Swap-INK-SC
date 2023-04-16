@@ -251,6 +251,7 @@ pub mod trading_pair_azero {
                     return Err(TradingPairErrors::Overflow); // If overflow occurs during calculation, return an error
                 }
             };
+
             // Perform a cross-contract call to the PSP22 token contract to transfer `psp22_deposit_amount` tokens from `caller` to the current contract's account ID
             if PSP22Ref::transfer_from_builder(&self.psp22_token,caller,Self::env().account_id(),psp22_deposit_amount,vec![]) 
                     .call_flags(CallFlags::default()
@@ -1720,65 +1721,65 @@ pub mod trading_pair_azero {
             shares_to_transfer: Balance
         ) -> Result<(), TradingPairErrors>  {
 
-           let spender = self.env().caller();
+            let spender = self.env().caller();
 
-           let owner_shares:Balance = self.balances.get(&owner).unwrap_or(0);
+            let owner_shares:Balance = self.balances.get(&owner).unwrap_or(0);
 
-           let to_shares:Balance = self.balances.get(&to).unwrap_or(0);
+            let to_shares:Balance = self.balances.get(&to).unwrap_or(0);
 
-           let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
+            let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
 
-           if allowance < shares_to_transfer {
-                return Err(TradingPairErrors::NotEnoughOwnerLPAllowance);
-           }
+            if allowance < shares_to_transfer {
+                    return Err(TradingPairErrors::NotEnoughOwnerLPAllowance);
+            }
 
-           if owner_shares < shares_to_transfer {
-                return Err(TradingPairErrors::CallerInsufficientLPBalance);
-           }
+            if owner_shares < shares_to_transfer {
+                    return Err(TradingPairErrors::CallerInsufficientLPBalance);
+            }
 
-           let new_owner_lp_balance:Balance;
+            let new_owner_lp_balance:Balance;
 
-           //calculating caller total LP share tokens amount after transfer
-           match owner_shares.checked_sub(shares_to_transfer) {
-               Some(result) => {
-                   new_owner_lp_balance = result;
-               }
-               None => {
-                return Err(TradingPairErrors::Overflow);
-               }
-           };
-
-           let new_to_lp_balance:Balance;
-
-           //calculating caller total LP share tokens amount after transfer
-           match to_shares.checked_add(shares_to_transfer) {
-               Some(result) => {
-                new_to_lp_balance = result;
-               }
-               None => {
-                return Err(TradingPairErrors::Overflow);
-               }
-           };
-
-           let new_allowance:Balance;
-
-           //calculating spender new allowance amount
-           match allowance.checked_sub(shares_to_transfer) {
+            //calculating caller total LP share tokens amount after transfer
+            match owner_shares.checked_sub(shares_to_transfer) {
                 Some(result) => {
-                    new_allowance = result;
+                    new_owner_lp_balance = result;
                 }
                 None => {
                     return Err(TradingPairErrors::Overflow);
                 }
             };
 
-           self.balances.insert(owner, &(new_owner_lp_balance));
+            let new_to_lp_balance:Balance;
 
-           self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
+            //calculating caller total LP share tokens amount after transfer
+            match to_shares.checked_add(shares_to_transfer) {
+                Some(result) => {
+                    new_to_lp_balance = result;
+                }
+                None => {
+                    return Err(TradingPairErrors::Overflow);
+                }
+            };
 
-           self.balances.insert(to, &(new_to_lp_balance));
+            let new_allowance:Balance;
 
-           Ok(())
+            //calculating spender new allowance amount
+            match allowance.checked_sub(shares_to_transfer) {
+                    Some(result) => {
+                        new_allowance = result;
+                    }
+                    None => {
+                        return Err(TradingPairErrors::Overflow);
+                    }
+            };
+
+            self.balances.insert(owner, &(new_owner_lp_balance));
+
+            self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
+
+            self.balances.insert(to, &(new_to_lp_balance));
+
+            Ok(())
     
          
         }
@@ -1863,8 +1864,19 @@ pub mod trading_pair_azero {
             //the amount of daily AZERO tokens to give ot the caller
             let azero_to_give_each_day:Balance = self.azero_to_give_in_a_day.get(caller).unwrap_or(0);
 
-            //calculating how many days passed since last redeem
-            let days_diff = (current_tsp - last_redeemed) / 86400;
+            // Declare a variable to hold the difference in days between current timestamp and last redeemed timestamp
+            let days_difference:u64; 
+            
+            // Calculate the difference in days by dividing the difference between current timestamp and last redeemed timestamp by 86400 (number of seconds in a day)
+            match (current_tsp - last_redeemed).checked_div(86400) { 
+                Some(result) => {
+                    days_difference = result; 
+                }
+                None => {
+                    // If the division results in overflow, return an error of StakingErrors::Overflow
+                    return Err(TradingPairErrors::Overflow); 
+                }
+            };
 
             //making sure that caller has more then 0 pooled PSP22 tokens
             if caller_locked_psp22_balance <= 0 {
@@ -1889,9 +1901,9 @@ pub mod trading_pair_azero {
 
 
             //The amount of PSP22 tokens and AZERO to give to the caller
-            let psp22_redeemable_amount:Balance = psp22_to_give_each_day * days_diff as u128;
+            let psp22_redeemable_amount:Balance = psp22_to_give_each_day * days_difference as u128;
 
-            let azero_redeemable_amount:Balance = azero_to_give_each_day * days_diff as u128;
+            let azero_redeemable_amount:Balance = azero_to_give_each_day * days_difference as u128;
 
             Ok((psp22_redeemable_amount,azero_redeemable_amount))
 

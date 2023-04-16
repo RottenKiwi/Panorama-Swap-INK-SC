@@ -1,6 +1,6 @@
 [package]
 name = "trading_pair_azero"
-version = "1.0.0"
+version = "2.5.0"
 authors = ["Yonatan Hornstein <yonatan@panoramaswap.com>"]
 edition = "2021"
 overflow-checks = false
