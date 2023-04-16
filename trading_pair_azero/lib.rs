@@ -53,6 +53,8 @@ pub mod trading_pair_azero {
         azero_to_give_in_a_day: Mapping<AccountId, Balance>,
         // Overall staking rewards for each account
         account_overall_staking_rewards: Mapping<AccountId, (Balance, Balance)>,
+        // Overall LP fee rewards for each account
+        account_overall_lp_fee_rewards: Mapping<AccountId, (Balance, Balance)>,
         // Last redeemed timestamp for each account
         last_redeemed: Mapping<AccountId, u64>,
         // Staking percentage for LP tokens
@@ -141,6 +143,7 @@ pub mod trading_pair_azero {
             let psp22_to_give_in_a_day = Mapping::default();  // Mapping to store daily PSP22 fees to be given
             let azero_to_give_in_a_day = Mapping::default();  // Mapping to store daily AZERO fees to be given
             let account_overall_staking_rewards = Mapping::default();  // Mapping to store overall staking rewards for accounts
+            let account_overall_lp_fee_rewards = Mapping::default();  // Mapping to store overall LP fee rewards for accounts
             let last_redeemed = Mapping::default();  // Mapping to store last redeemed time for accounts
             let staking_percentage = 3;  // Percentage of fees to be distributed as staking rewards
             let actual_lp_fee = fee;  // Actual LP fee to be charged
@@ -164,6 +167,7 @@ pub mod trading_pair_azero {
                 psp22_to_give_in_a_day,
                 azero_to_give_in_a_day,
                 account_overall_staking_rewards,
+                account_overall_lp_fee_rewards,
                 last_redeemed,
                 staking_percentage,
                 actual_lp_fee
@@ -387,7 +391,30 @@ pub mod trading_pair_azero {
             //reducing overall LP token supply
             self.total_supply -= shares;
 
+            if self.total_supply == 0 {
 
+                //cross contract call to PSP22 contract to transfer PSP2 tokens to the caller
+                if PSP22Ref::transfer(&self.psp22_token,caller,self.get_psp22_balance(),vec![]).is_err(){
+                    return Err(TradingPairErrors::PSP22TransferFailed);
+                }
+
+                //function to transfer A0 to the caller
+                if self.env().transfer(caller, self.get_a0_balance()).is_err() {
+                    return Err(TradingPairErrors::A0TransferFailed);
+                }
+
+
+            }
+
+            let (current_overall_psp22_lp_rewards,current_overall_azero_lp_rewards) = self.account_overall_lp_fee_rewards
+                .get(&caller)
+                .unwrap_or((0,0));
+
+            self.account_overall_lp_fee_rewards
+                .insert(
+                    &caller,
+                    &(current_overall_psp22_lp_rewards + psp22_fee_amount_to_give,
+                    current_overall_azero_lp_rewards + a0_fee_amount_to_give));
 
             //reducing the given PSP22 tokens from LP fee from the total PSP22 LP vault
             self.psp22_lp_fee_vault = self.psp22_lp_fee_vault - psp22_fee_amount_to_give;
@@ -1839,11 +1866,6 @@ pub mod trading_pair_azero {
             //calculating how many days passed since last redeem
             let days_diff = (current_tsp - last_redeemed) / 86400;
 
-            //making sure that 24 hours has passed since last redeem
-            if days_diff <= 0 {
-                return Err(TradingPairErrors::ZeroDaysPassed);
-            }
-
             //making sure that caller has more then 0 pooled PSP22 tokens
             if caller_locked_psp22_balance <= 0 {
                 return Err(TradingPairErrors::CallerInsufficientPSP22Balance);
@@ -1889,8 +1911,7 @@ pub mod trading_pair_azero {
             //caller timestamp
             let current_tsp = self.get_current_timestamp();
 
-            
-            let (psp22_redeemable_amount,azero_redeemable_amount) = self.get_redeemable_amount().unwrap();
+            let (psp22_redeemable_amount,azero_redeemable_amount) = self.get_redeemable_amount().unwrap_or((0,0));
 
             //cross contract call to PSP22 contract to transfer PSP22 to caller
             if PSP22Ref::transfer(&self.psp22_token,caller,psp22_redeemable_amount,vec![]).is_err(){
@@ -1907,7 +1928,7 @@ pub mod trading_pair_azero {
 
             let (current_account_overall_psp22_staking_rewards, current_account_overall_azero_staking_rewards) = self.account_overall_staking_rewards
                 .get(&caller)
-                .unwrap();
+                .unwrap_or((0,0));
 
             self.account_overall_staking_rewards
                 .insert(
@@ -2037,7 +2058,20 @@ pub mod trading_pair_azero {
             owner: AccountId,
         )-> (Balance,Balance)  {
         
-           let (psp22_overall_amount, azero_overall_amount) = self.account_overall_staking_rewards.get(&owner).unwrap();
+           let (psp22_overall_amount, azero_overall_amount) = self.account_overall_staking_rewards.get(&owner).unwrap_or((0,0));
+
+
+           (psp22_overall_amount,azero_overall_amount)
+
+        }
+
+        #[ink(message)]
+        pub fn get_account_overall_lp_fee_rewards(
+            &self,
+            owner: AccountId,
+        )-> (Balance,Balance)  {
+        
+           let (psp22_overall_amount, azero_overall_amount) = self.account_overall_lp_fee_rewards.get(&owner).unwrap_or((0,0));
 
 
            (psp22_overall_amount,azero_overall_amount)
