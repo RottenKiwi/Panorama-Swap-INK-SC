@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "ink-as-dependency"))]
+#![feature(default_alloc_error_handler)]
 
 
 
@@ -9,7 +10,7 @@ pub mod staking_contract {
     use openbrush::{
         contracts::{
             traits::psp22::PSP22Ref,
-        },
+        }, traits::Balance,
     };
 
     use ink::storage::Mapping;
@@ -52,7 +53,7 @@ pub mod staking_contract {
 
     impl StakingContract {
         #[ink(constructor)]
-        pub fn new(psp22_contract:AccountId) -> Self {
+        pub fn new(psp22_contract:AccountId,staking_percentage:Balance) -> Self {
             
 
             let manager:AccountId = Self::env().caller();
