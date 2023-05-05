@@ -349,10 +349,6 @@ pub mod trading_pair_azero {
                 return Err(TradingPairErrors::A0TransferFailed);
             }
 
-            //update caller's incentive program claim percentage according to the new LP share tokens
-            if self.remove_lp(new_caller_lp_shares).is_err() {
-                return Err(TradingPairErrors::RemoveLpIncentiveProgramError);
-            }
 
             //reducing caller total LP share tokens balance
             self.balances.insert(caller, &(new_caller_lp_shares));
@@ -373,6 +369,11 @@ pub mod trading_pair_azero {
                 }
 
 
+            }
+
+            //update caller's incentive program claim percentage according to the new LP share tokens
+            if self.remove_lp(new_caller_lp_shares).is_err() {
+                return Err(TradingPairErrors::RemoveLpIncentiveProgramError);
             }
 
             let (current_overall_psp22_lp_rewards,current_overall_azero_lp_rewards) = self.account_overall_lp_fee_rewards
