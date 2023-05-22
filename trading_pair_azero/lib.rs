@@ -141,7 +141,7 @@ pub mod trading_pair_azero {
             let account_overall_staking_rewards = Mapping::default();  // Mapping to store overall staking rewards for accounts
             let account_overall_lp_fee_rewards = Mapping::default();  // Mapping to store overall LP fee rewards for accounts
             let last_redeemed = Mapping::default();  // Mapping to store last redeemed time for accounts
-            let staking_percentage = 3;  // Percentage of fees to be distributed as staking rewards
+            let staking_percentage = 2;  // Percentage of fees to be distributed as staking rewards
 
             // Return a new instance of TradingPairAzero with initialized variables
 
@@ -1877,7 +1877,7 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_generated_lp_fees(
             &mut self,
-        )-> (Balance,Balance)  {
+        )   -> (Balance,Balance)  {
         
            let psp22_lp_fees:Balance = self.psp22_lp_fee_vault;
            let azero_lp_fees:Balance = self.azero_lp_fee_vault;
@@ -1930,7 +1930,7 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_account_id(
             &self
-        ) -> AccountId {
+        )   -> AccountId {
 
             Self::env().account_id()
 

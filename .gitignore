@@ -17,3 +17,5 @@ Cargo.lock
 */lp_rewards
 **/lp_rewards
 /staking_contract/
+**/trading_pair_astar/
+*/trading_pair_astar
