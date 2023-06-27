@@ -1,11 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(default_alloc_error_handler)]
-
-pub use self::trading_pair_azero::{
-	TradingPairAzero,
-	TradingPairAzeroRef,
-};
-
+#![feature(min_specialization)]
 
 #[ink::contract]
 pub mod trading_pair_azero {
@@ -18,6 +12,7 @@ pub mod trading_pair_azero {
     use ink::storage::Mapping;  // Importing Mapping from ink storage
     use ink::env::CallFlags;  // Importing CallFlags from ink env
     use ink::prelude::vec;  // Importing vec from ink prelude
+    use primitive_types::U256;
 
     #[ink(storage)]
     pub struct TradingPairAzero {
@@ -181,11 +176,12 @@ pub mod trading_pair_azero {
         
             let caller = self.env().caller(); // Get the address of the caller
         
+            
             let caller_current_balance: Balance = PSP22Ref::balance_of( // Get the current balance of PSP22 tokens for the caller
                 &self.psp22_token,
                 caller
             );
-        
+
             if caller_current_balance < psp22_deposit_amount { // If caller's PSP22 balance is less than the deposit amount, return an error
                 return Err(TradingPairErrors::CallerInsufficientPSP22Balance);
             }
@@ -371,20 +367,28 @@ pub mod trading_pair_azero {
 
             }
 
+            
+
             //update caller's incentive program claim percentage according to the new LP share tokens
             if self.remove_lp(new_caller_lp_shares).is_err() {
                 return Err(TradingPairErrors::RemoveLpIncentiveProgramError);
             }
 
+
+
             let (current_overall_psp22_lp_rewards,current_overall_azero_lp_rewards) = self.account_overall_lp_fee_rewards
                 .get(&caller)
                 .unwrap_or((0u128,0u128));
+
+
 
             self.account_overall_lp_fee_rewards
                 .insert(
                     &caller,
                     &(current_overall_psp22_lp_rewards + psp22_fee_amount_to_give,
                     current_overall_azero_lp_rewards + a0_fee_amount_to_give));
+
+
 
             //reducing the given PSP22 tokens from LP fee from the total PSP22 LP vault
             self.psp22_lp_fee_vault = self.psp22_lp_fee_vault - psp22_fee_amount_to_give;
@@ -403,8 +407,6 @@ pub mod trading_pair_azero {
 
             // Return a successful result
             Ok(())
-
-
 
        }
 
@@ -508,12 +510,12 @@ pub mod trading_pair_azero {
             shares_amount: Balance
         )   -> Result<Balance, TradingPairErrors> {
 
-            let amount_of_psp22_to_give:Balance;
+            let amount_of_psp22_to_give:U256;
 
             let actual_psp22_balance = self.get_psp22_balance();
 
             //calculating the amount of PSP22 to give to the caller.
-            match (shares_amount * actual_psp22_balance).checked_div(self.total_supply) {
+            match (U256::from(shares_amount) * U256::from(actual_psp22_balance)).checked_div(U256::from(self.total_supply)) {
                 Some(result) => {
                     amount_of_psp22_to_give = result;
                 }
@@ -522,7 +524,9 @@ pub mod trading_pair_azero {
                 }
             };
 
-            Ok(amount_of_psp22_to_give)
+            let amount_of_psp22_to_give_u128 = amount_of_psp22_to_give.as_u128();
+
+            Ok(amount_of_psp22_to_give_u128)
         
         }
 
@@ -533,10 +537,10 @@ pub mod trading_pair_azero {
             shares_amount: Balance
         )   -> Result<Balance, TradingPairErrors> {
 
-            let amount_of_psp22_fees_to_give:Balance;
+            let amount_of_psp22_fees_to_give:U256;
 
             //calculating the amount of PSP22 to give to the caller.
-            match (shares_amount * self.psp22_lp_fee_vault).checked_div(self.total_supply) {
+            match (U256::from(shares_amount) * U256::from(self.psp22_lp_fee_vault)).checked_div(U256::from(self.total_supply)) {
                 Some(result) => {
                     amount_of_psp22_fees_to_give = result;
                 }
@@ -545,7 +549,10 @@ pub mod trading_pair_azero {
                 }
             };
 
-            Ok(amount_of_psp22_fees_to_give)
+
+            let amount_of_psp22_to_give_u128 = amount_of_psp22_fees_to_give.as_u128();
+
+            Ok(amount_of_psp22_to_give_u128)
         
         }
 
@@ -587,13 +594,13 @@ pub mod trading_pair_azero {
             shares_amount: Balance
         )   -> Result<Balance, TradingPairErrors> {
 
-            let amount_of_a0_to_give:Balance;
+            let amount_of_a0_to_give:U256;
 
             let actual_a0_balance = self.get_a0_balance();
 
 
             //calculating the amount of A0 to give to the caller.
-            match (shares_amount * actual_a0_balance).checked_div(self.total_supply) {
+            match (U256::from(shares_amount) * U256::from(actual_a0_balance)).checked_div(U256::from(self.total_supply)) {
                 Some(result) => {
                     amount_of_a0_to_give = result;
                 }
@@ -602,8 +609,9 @@ pub mod trading_pair_azero {
                 }
             };
 
+            let amount_of_a0_to_give_u128 = amount_of_a0_to_give.as_u128();
             
-            Ok(amount_of_a0_to_give)
+            Ok(amount_of_a0_to_give_u128)
         
         }
 
@@ -1608,20 +1616,20 @@ pub mod trading_pair_azero {
             owner:AccountId,
             to:AccountId,
             shares_to_transfer: Balance
-        ) -> Result<(), TradingPairErrors>  {
-
-            let spender = self.env().caller();
+        ) -> Result<Balance, TradingPairErrors>  {
 
             let owner_shares:Balance = self.balances.get(&owner).unwrap_or(0);
 
             let to_shares:Balance = self.balances.get(&to).unwrap_or(0);
 
-            let allowance:Balance = self.get_lp_tokens_allowance(owner,spender);
+            let allowance = self.get_lp_tokens_allowance(owner,to);
 
+            
             if allowance < shares_to_transfer {
                     return Err(TradingPairErrors::NotEnoughOwnerLPAllowance);
             }
 
+            
             if owner_shares < shares_to_transfer {
                     return Err(TradingPairErrors::CallerInsufficientLPBalance);
             }
@@ -1664,11 +1672,11 @@ pub mod trading_pair_azero {
 
             self.balances.insert(owner, &(new_owner_lp_balance));
 
-            self.lp_tokens_allowances.insert((owner,spender), &(new_allowance));
+            self.lp_tokens_allowances.insert((owner,to), &(new_allowance));
 
             self.balances.insert(to, &(new_to_lp_balance));
-
-            Ok(())
+            
+            Ok(allowance)
     
          
         }
@@ -1720,10 +1728,10 @@ pub mod trading_pair_azero {
             let account_shares_balance:Balance = self.balances.get(&caller).unwrap_or(0);
 
             //amount of PSP22 to give to the caller without LP fee
-            let caller_locked_psp22_balance = self.get_psp22_withdraw_tokens_amount(account_shares_balance).unwrap();
+            let caller_locked_psp22_balance = self.get_psp22_withdraw_tokens_amount(account_shares_balance).unwrap_or(0);
 
             //last time caller redeemed tokens
-            let last_redeemed = self.last_redeemed.get(caller).unwrap_or(0);
+            let last_redeemed: u64 = self.last_redeemed.get(caller).unwrap_or(0);
 
             //the amount of daily PSP22 tokens to give ot the caller
             let psp22_to_give_each_day:Balance = self.psp22_to_give_in_a_day.get(caller).unwrap_or(0);
@@ -1866,7 +1874,7 @@ pub mod trading_pair_azero {
         pub fn get_amount_to_give_each_day_to_caller(
             &mut self,
             caller:AccountId
-        )-> Balance  {
+        )   -> Balance  {
         
            let psp22_daily_amount:Balance = self.psp22_to_give_in_a_day.get(&caller).unwrap_or(0);
 
@@ -2065,6 +2073,2018 @@ pub mod trading_pair_azero {
             });
   
         }
+
+
  
     }
+
+
+
+    /// ink! end-to-end (E2E) tests
+    ///
+    /// cargo test --features e2e-tests -- --nocapture
+    ///
+    #[cfg(all(test, feature = "e2e-tests"))]
+    mod e2e_tests {
+        use super::*;
+        use ink::primitives::AccountId;
+        use ink_e2e::build_message;
+        use openbrush::contracts::psp22::psp22_external::PSP22;
+        use my_psp22::my_psp22::MyPsp22Ref;
+        use openbrush::{
+            contracts::psp22::extensions::metadata::*,
+            traits::{
+                Storage,
+                
+            },
+        };
+
+        type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+        /// Helper to get Bob's account_id from `ink_e2e::bob()` PairSigner
+        fn get_bob_account_id() -> AccountId {
+            let bob = ink_e2e::bob::<ink_e2e::PolkadotConfig>();
+            let bob_account_id_32 = bob.account_id();
+            let bob_account_id = AccountId::try_from(bob_account_id_32.as_ref()).unwrap();
+
+            bob_account_id
+        }
+
+        fn get_alice_account_id() -> AccountId {
+            let alice = ink_e2e::alice::<ink_e2e::PolkadotConfig>();
+            let alice_account_id_32 = alice.account_id();
+            let alice_account_id = AccountId::try_from(alice_account_id_32.as_ref()).unwrap();
+
+            alice_account_id
+        }
+
+        fn get_charlie_account_id() -> AccountId {
+            let charlie = ink_e2e::charlie::<ink_e2e::PolkadotConfig>();
+            let charlie_account_id_32 = charlie.account_id();
+            let charlie_account_id = AccountId::try_from(charlie_account_id_32.as_ref()).unwrap();
+
+            charlie_account_id
+        }
+        
+        ///Tests included in "provide_to_pool_works":
+        /// 1. provide_to_pool
+        /// 2. get_a0_balance
+        /// 3. get_psp22_balance
+        /// 4. get_amount_to_give_each_day_to_caller
+        #[ink_e2e::test( additional_contracts = "../my_psp22/Cargo.toml" )]
+        async fn provide_to_pool_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // Create a new instance of MyPsp22Ref contract
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            
+            // Instantiate MyPsp22Ref contract and get the account ID
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a new instance of TradingPairAzeroRef contract
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            
+            // Instantiate TradingPairAzeroRef contract and get the account ID
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build an `approve` message for MyPsp22Ref contract to approve TradingPairAzeroRef contract to use tokens
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            // Call `approve_psp22_to_provide_lp` message
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Build a `provide_to_pool` message for TradingPairAzeroRef contract to provide liquidity to the pool
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            let amount: u128 = 10000000000000;
+        
+            // Call `provide_to_tpa` message
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a `get_a0_balance` message for TradingPairAzeroRef contract to get the balance of a0
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call `get_a0_balance` message
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_balance failed");
+        
+            // Assert the returned balance of a0
+            assert_eq!(get_a0_res.return_value(), 10001000000000);
+        
+            // Build a `get_psp22_balance` message for TradingPairAzeroRef contract to get the balance of psp22
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call `get_psp22_balance` message
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_res failed");
+        
+            // Assert the returned balance of psp22
+            assert_eq!(get_psp22_res.return_value(), 100000000000000, "get_res");
+        
+            // Build a `get_amount_to_give_each_day_to_caller` message for TradingPairAzeroRef contract
+            // to get the amount to give each day to the caller
+            let get_amount_to_give_each_day_to_caller = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_amount_to_give_each_day_to_caller(get_alice_account_id()));
+        
+            // Call `get_amount_to_give_each_day_to_caller` message
+            let get_amount_to_give_each_day_to_caller_res = client
+                .call(&ink_e2e::alice(), get_amount_to_give_each_day_to_caller, 0, None)
+                .await
+                .expect("get_amount_to_give_each_day_to_caller_res failed");
+        
+            // Assert the returned amount to give each day to the caller
+            assert_eq!(get_amount_to_give_each_day_to_caller_res.return_value(), 5479452054);
+        
+        
+            // Return Ok(())
+            Ok(())
+        }
+
+        ///Tests included in "withdraw_from_pool":
+        /// 1. provide_to_pool
+        /// 2. get_amount_to_give_each_day_to_caller
+        /// 3. get_a0_balance
+        /// 4. get_psp22_balance
+        /// 5. get_lp_token_of
+        /// 6. withdraw_specific_amount
+        /// 7. get_account_overall_staking_rewards
+        #[ink_e2e::test( additional_contracts = "../my_psp22/Cargo.toml" )]
+        async fn withdraw_from_pool(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a new instance of MyPsp22Ref contract
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            
+            // Instantiate MyPsp22Ref contract and get the account ID
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a new instance of TradingPairAzeroRef contract
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            
+            // Instantiate TradingPairAzeroRef contract and get the account ID
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build an `approve` message for MyPsp22Ref contract to approve TradingPairAzeroRef contract to use tokens
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            // Call `approve_psp22_to_provide_lp` message
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Build a `provide_to_pool` message for TradingPairAzeroRef contract to provide liquidity to the pool
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            let amount: u128 = 10000000000000;
+        
+            // Call `provide_to_tpa` message
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a `get_amount_to_give_each_day_to_caller` message for TradingPairAzeroRef contract
+            // to get the amount to give each day to the caller
+            let get_amount_to_give_each_day_to_caller = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_amount_to_give_each_day_to_caller(get_alice_account_id()));
+        
+            // Call `get_amount_to_give_each_day_to_caller` message
+            let get_amount_to_give_each_day_to_caller_res = client
+                .call(&ink_e2e::alice(), get_amount_to_give_each_day_to_caller, 0, None)
+                .await
+                .expect("get_amount_to_give_each_day_to_caller_res failed");
+        
+            // Assert the returned amount to give each day to the caller
+            assert_eq!(get_amount_to_give_each_day_to_caller_res.return_value(), 5479452054);
+        
+            // Build a `get_a0_balance` message for TradingPairAzeroRef contract to get the balance of a0
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call `get_a0_balance` message
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_balance failed");
+        
+            // Assert the returned balance of a0
+            assert_eq!(get_a0_res.return_value(), 10001000000000);
+        
+            // Build a `get_psp22_balance` message for TradingPairAzeroRef contract to get the balance of psp22
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call `get_psp22_balance` message
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_balance failed");
+        
+            // Assert the returned balance of psp22
+            assert_eq!(get_psp22_res.return_value(), 100000000000000);
+        
+            // Build a `get_lp_token_of` message for TradingPairAzeroRef contract to get the LP token balance
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+        
+            // Call `get_lp_token_of` message
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_token_of failed");
+        
+            // Assert the returned LP token balance
+            assert_eq!(get_lp_share_res.return_value(), 1000000000000000);
+        
+            let amount: u128 = 500000000000000;
+        
+            // Build a `withdraw_specific_amount` message for TradingPairAzeroRef contract to withdraw a specific amount from the pool
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            // Call `withdraw_from_pool` message
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw failed");
+        
+            // Build a `get_amount_to_give_each_day_to_caller` message for TradingPairAzeroRef contract
+            // to get the updated amount to give each day to the caller
+            let get_amount_to_give_each_day_to_caller = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_amount_to_give_each_day_to_caller(get_alice_account_id()));
+        
+            // Call `get_amount_to_give_each_day_to_caller` message
+            let get_amount_to_give_each_day_to_caller_res = client
+                .call(&ink_e2e::alice(), get_amount_to_give_each_day_to_caller, 0, None)
+                .await
+                .expect("get_amount_to_give_each_day_to_caller_res failed");
+        
+            // Assert the updated amount to give each day to the caller
+            assert_eq!(get_amount_to_give_each_day_to_caller_res.return_value(), 2739726027);
+        
+            // Build a `get_lp_token_of` message for TradingPairAzeroRef contract to get the updated LP token balance
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+        
+            // Call `get_lp_token_of` message
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Assert the updated LP token balance
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+        
+            // Build a `get_a0_balance` message for TradingPairAzeroRef contract to get the updated balance of a0
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call `get_a0_balance` message
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Assert the updated balance of a0
+            assert_eq!(get_a0_res.return_value(), 5000500000000);
+        
+            // Build a `get_psp22_balance` message for TradingPairAzeroRef contract to get the updated balance of psp22
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call `get_psp22_balance` message
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Assert the updated balance of psp22
+            assert_eq!(get_psp22_res.return_value(), 50000000000000);
+        
+            // Build a `get_account_overall_staking_rewards` message for TradingPairAzeroRef contract
+            // to get the overall staking rewards for the account
+            let get_account_overall_staking_rewards = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_account_overall_staking_rewards(get_alice_account_id()));
+        
+            // Call `get_account_overall_staking_rewards` message
+            let get_account_overall_staking_rewards_res = client
+                .call(&ink_e2e::alice(), get_account_overall_staking_rewards, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Assert the overall staking rewards for the account
+            assert_eq!(get_account_overall_staking_rewards_res.return_value(), 0);
+        
+            /* */
+        
+            Ok(())
+        }
+
+        ///Tests included in "get_withdraw_tokens_amount_works"
+        /// 1. provide_to_pool
+        /// 2. get_a0_balance
+        /// 3. get_psp22_balance
+        /// 4. get_withdraw_tokens_amount
+        /// 5. get_lp_token_of
+        /// 6. withdraw_specific_amount
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_withdraw_tokens_amount_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // PSP22 token constructor object
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+        
+            // Instantiate new PSP22 token using the constructor
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Trading pair constructor object
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+        
+            // Instantiate new TradingPairAzero contract using the constructor
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build PSP22 approve message: Alice approves the trading pair for 100 PSP22 tokens
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            // Call the PSP22 approve message
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Build TPA's provide to pool message:
+            // Parameters: 100 PSP22 tokens, 1000 expected LP token shares, 0.5 slippage
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            // Amount of native coin to transfer in the provide to pool call
+            let amount: u128 = 10000000000000;
+        
+            // Call provide to pool function
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build get A0 (Azero/native coin) balance call to fetch new TPA A0 balance after LP provision
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call and fetch the result
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_res failed");
+        
+            // Validate that the new A0 balance is correct
+            assert_eq!(get_a0_res.return_value(), 10001000000000);
+        
+            // Build get PSP22 balance call to fetch new TPA PSP22 balance after LP provision
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call and fetch the result
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_res failed");
+        
+            // Validate that the new PSP22 balance is correct
+            assert_eq!(get_psp22_res.return_value(), 100000000000000);
+        
+            // Build get_withdraw_tokens message to fetch the withdrawable tokens by given shares
+            let get_withdraw_tokens_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_withdraw_tokens_amount(1000000000000000));
+        
+            // Call and fetch the results
+            let get_withdraw_tokens_amount_res = client
+                .call(&ink_e2e::alice(), get_withdraw_tokens_amount, 0, None)
+                .await
+                .expect("get_withdraw_tokens_amount_res failed");
+        
+            // Fetch the A0 (Native coin) and PSP22 tokens balances from 'get_withdraw_tokens_amount_res' 
+            let Some((a0_coins, psp22_tokens)) = get_withdraw_tokens_amount_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that TPA really holds the PSP22 tokens that we sent
+            assert_eq!(psp22_tokens, 100000000000000);
+        
+            // Validate that TPA really holds the native tokens that we sent
+            assert_eq!(a0_coins, 10001000000000);
+        
+            // LP share amount to withdraw (500 x 10^12)
+            let amount: u128 = 500000000000000;
+        
+            // Build the withdraw from pool function with the specified amount
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            // Call the withdraw from pool function
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw_from_pool failed");
+        
+            // Build the get lp share token balance message with the LP provider AccountId
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+        
+            // Get the lp share tokens after withdrawal
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Validate that the amount of the remaining LP share tokens is correct
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+        
+            // Build the get A0 balance message to see the remaining native coin balance after withdrawal
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call the get A0 message and fetch the result
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Validate that the remaining native coin balance is correct
+            assert_eq!(get_a0_res.return_value(), 5000500000000);
+        
+            // Build the get PSP22 balance message to see the remaining PSP22 balance after withdrawal
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call the get PSP22 message and fetch the result
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get failed");
+        
+            // Validate that the remaining PSP22 balance is correct
+            assert_eq!(get_psp22_res.return_value(), 50000000000000);
+        
+            // Get the withdraw tokens amount by given shares after withdrawal
+            let get_withdraw_tokens_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_withdraw_tokens_amount(500000000000000));
+        
+            // Build get_withdraw_tokens message to fetch the withdrawable tokens by given shares
+            let get_withdraw_tokens_amount_res = client
+                .call(&ink_e2e::alice(), get_withdraw_tokens_amount, 0, None)
+                .await
+                .expect("get_withdraw_tokens_amount_res failed");
+        
+            // Fetch the A0 (Native coin) and PSP22 tokens balances from 'get_withdraw_tokens_amount_res' 
+            let Some((a0_coins, psp22_tokens)) = get_withdraw_tokens_amount_res.return_value().ok() else { panic!("get withdraw failed") };
+        
+            assert_eq!(psp22_tokens, 50000000000000);
+        
+            assert_eq!(a0_coins, 5000500000000);
+        
+            /* */
+        
+            Ok(())
+        
+        }
+        
+        ///Tests included in 'get_psp22_withdraw_tokens_amount_works'
+        /// 1. provide_to_pool
+        /// 2. get_psp22_balance
+        /// 3. get_psp22_withdraw_tokens_amount
+        /// 4. withdraw_specific_amount
+        /// 5. get_lp_token_of
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_psp22_withdraw_tokens_amount_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // PSP22 token constructor object
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+        
+            // Instantiate new PSP22 token using the constructor
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Trading pair constructor object
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+        
+            // Instantiate new tpa contract using the constructor
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build psp22 approve message: Alice approves trading pair for 100 psp22 tokens
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            // Call the psp22 approve message
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Build tpa's provide to pool message: Provide 100 PSP22 tokens, 1000 expected LP token shares, and 0.5 as slippage
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            // Amount of native coin to transfer in the provide to pool call
+            let amount: u128 = 10000000000000;
+        
+            // Call the provide to pool function
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build get PSP22 balance call to fetch new tpa PSP22 balance after LP provision
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call and fetch the result
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_res failed");
+        
+            // Validate that the new PSP22 balance is correct
+            assert_eq!(get_psp22_res.return_value(), 100000000000000);
+        
+            // Build get_withdraw_tokens message to fetch the withdrawable tokens by given shares
+            let get_psp22_withdraw_tokens_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_withdraw_tokens_amount(1000000000000000));
+        
+            // Call and fetch the results
+            let get_psp22_withdraw_tokens_amount_res = client
+                .call(&ink_e2e::alice(), get_psp22_withdraw_tokens_amount, 0, None)
+                .await
+                .expect("get_psp22_withdraw_tokens_amount_res failed");
+        
+            // Fetch the get_psp22_withdraw_tokens_amount_res result
+            let Some(psp22_tokens) = get_psp22_withdraw_tokens_amount_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that tpa really holds the PSP22 tokens that we sent
+            assert_eq!(psp22_tokens, 100000000000000);
+        
+            // LP share amount to withdraw (500 x 10^12)
+            let amount: u128 = 500000000000000;
+        
+            // Build the withdraw from pool function with the amount that we stated above
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            // Call the withdraw from pool function
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw_from_pool failed");
+        
+            // Build the get lp share token balance message with the LP provider AccountId
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+        
+            // Get the lp share tokens after withdrawal
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_share_res failed");
+        
+            // Validate that the amount of the remaining LP share tokens is correct
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+        
+            // Build the get PSP22 balance message to see remaining PSP22 balance after withdrawal
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call the get PSP22 message and fetch the result
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_res failed");
+        
+            // Validate that the remaining PSP22 balance is correct
+            assert_eq!(get_psp22_res.return_value(), 50000000000000);
+        
+            // Build get_withdraw_tokens message to fetch the withdrawable tokens by given shares
+            let get_psp22_withdraw_tokens_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_withdraw_tokens_amount(1000000000000000));
+        
+            // Call and fetch the results
+            let get_psp22_withdraw_tokens_amount_res = client
+                .call(&ink_e2e::alice(), get_psp22_withdraw_tokens_amount, 0, None)
+                .await
+                .expect("get failed");
+        
+            let Some(psp22_tokens) = get_psp22_withdraw_tokens_amount_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that tpa really holds the PSP22 tokens that we sent
+            assert_eq!(psp22_tokens, 100000000000000);
+        
+            Ok(())
+        }
+
+        ///Tests included in 'get_a0_withdraw_tokens_amount_works'
+        /// 1. provide_to_pool
+        /// 2. get_a0_balance
+        /// 3. get_a0_withdraw_tokens_amount
+        /// 4. withdraw_specific_amount
+        /// 5. get_lp_token_of
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_a0_withdraw_tokens_amount_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // PSP22 token constructor object
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+        
+            // Instantiate new PSP22 token using the constructor
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Trading pair constructor object
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+        
+            // Instantiate new TPA contract using the constructor
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build PSP22 approve message: Alice approves trading pair for 100 PSP22 tokens
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            // Call the PSP22 approve message
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Build TPA's provide to pool message:
+            // Parameters: 100 PSP22 tokens, 1000 as expected LP tokens shares, and 0.5 as slippage
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            // Amount of native coin to transfer in the provide to pool call
+            let amount: u128 = 10000000000000;
+        
+            // Call the provide to pool function
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build the get A0 balance call to fetch new TPA A0 balance after LP provision
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call and fetch the result
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_res failed");
+        
+            // Validate that the new PSP22 balance is correct
+            assert_eq!(get_a0_res.return_value(), 10001000000000);
+        
+            // Build get_withdraw_tokens message to fetch the withdrawable tokens by given shares
+            let get_a0_withdraw_tokens_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_withdraw_tokens_amount(1000000000000000));
+        
+            // Call and fetch the result
+            let get_a0_withdraw_tokens_amount_res = client
+                .call(&ink_e2e::alice(), get_a0_withdraw_tokens_amount, 0, None)
+                .await
+                .expect("get_a0_withdraw_tokens_amount_res failed");
+        
+            let Some(a0_tokens) = get_a0_withdraw_tokens_amount_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that TPA really holds the PSP22 tokens that we sent
+            assert_eq!(a0_tokens, 10001000000000);
+        
+            // LP share amount to withdraw (500 x 10^12)
+            let amount: u128 = 500000000000000;
+        
+            // Build the withdraw from pool function with the specified amount
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            // Call the withdraw from pool function
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw_from_pool failed");
+        
+            // Build the get LP share token balance message with the LP provider AccountId
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+        
+            // Get the LP share tokens after withdrawal
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_share_res failed");
+        
+            // Validate that the amount of the remaining LP share tokens is correct
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+        
+            // Build the get PSP22 balance message to see the remaining PSP22 balance after withdrawal
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call the get PSP22 message and fetch the result
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_res failed");
+        
+            // Validate that the remaining PSP22 balance is correct
+            assert_eq!(get_a0_res.return_value(), 5000500000000);
+        
+            // Build get_withdraw_tokens message to fetch the withdrawable tokens by given shares
+            let get_a0_withdraw_tokens_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_withdraw_tokens_amount(1000000000000000));
+        
+            // Call and fetch the result
+            let get_a0_withdraw_tokens_amount_res = client
+                .call(&ink_e2e::alice(), get_a0_withdraw_tokens_amount, 0, None)
+                .await
+                .expect("get_a0_withdraw_tokens_amount_res failed");
+        
+            let Some(a0_tokens) = get_a0_withdraw_tokens_amount_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that TPA really holds the PSP22 tokens that we sent
+            assert_eq!(a0_tokens, 10001000000000);
+        
+            Ok(())
+        }
+
+        ///Tests included in 'get_account_locked_tokens_works'
+        /// 1. provide_to_pool
+        /// 2. get_a0_balance
+        /// 3. get_psp22_balance
+        /// 4. get_account_locked_tokens
+        /// 5. withdraw_specific_amount
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_account_locked_tokens_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // PSP22 token constructor object
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+        
+            // Instantiate new PSP22 token using the constructor
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Trading pair constructor object
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+        
+            // Instantiate new TPA contract using the constructor
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build PSP22 approve message: Alice approves trading pair for 100 PSP22 tokens
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            // Call the PSP22 approve message
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Build TPA's provide to pool message: (100 PSP22 tokens, 1000 as expected LP tokens shares, and 0.5 as slippage)
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            // Amount of native coin to transfer in the provide to pool call
+            let amount: u128 = 10000000000000;
+        
+            // Call the provide to pool function
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build the get A0 balance call to fetch new TPA A0 balance after LP provision
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call and fetch the result
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_balance failed");
+        
+            // Validate that the new A0 balance is correct
+            assert_eq!(get_a0_res.return_value(), 10001000000000);
+        
+            // Build the get PSP22 balance call to fetch new TPA PSP22 balance after LP provision
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call and fetch the result
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_balance failed");
+        
+            // Validate that the new PSP22 balance is correct
+            assert_eq!(get_psp22_res.return_value(), 100000000000000);
+        
+            // Build get_account_locked_tokens message to fetch the locked tokens by given account ID
+            let get_account_locked_tokens = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_account_locked_tokens(get_alice_account_id()));
+        
+            // Call and fetch the result
+            let get_account_locked_tokens_res = client
+                .call(&ink_e2e::alice(), get_account_locked_tokens, 0, None)
+                .await
+                .expect("get_account_locked_tokens failed");
+            
+            // Fetch locked PSP22 tokens and A0 (Native coin) balances
+            let Some((psp22_tokens, a0_coins)) = get_account_locked_tokens_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that TPA really holds the PSP22 tokens that we sent
+            assert_eq!(a0_coins, 10001000000000);
+        
+            // Validate that TPA really holds the native tokens that we sent
+            assert_eq!(psp22_tokens, 100000000000000);
+        
+            // LP share amount to withdraw (500 x 10^12)
+            let amount: u128 = 500000000000000;
+        
+            // Build the withdraw from pool function with the specified amount
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            // Call the withdraw from pool function
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw_from_pool failed");
+        
+            // Build the get A0 balance message to see the remaining native coin balance after withdrawal
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            // Call the get A0 message and fetch the result
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_balance failed");
+        
+            // Validate that the remaining native coin balance is correct
+            assert_eq!(get_a0_res.return_value(), 5000500000000);
+        
+            // Build the get PSP22 balance message to see the remaining PSP22 balance after withdrawal
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            // Call the get PSP22 message and fetch the result
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_balance failed");
+        
+            // Validate that the remaining PSP22 balance is correct
+            assert_eq!(get_psp22_res.return_value(), 50000000000000);
+        
+            // Build get_account_locked_tokens message to fetch the locked tokens by given account ID
+            let get_account_locked_tokens = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_account_locked_tokens(get_alice_account_id()));
+        
+            // Call and fetch the result
+            let get_account_locked_tokens_res = client
+                .call(&ink_e2e::alice(), get_account_locked_tokens, 0, None)
+                .await
+                .expect("get_account_locked_tokens failed");
+        
+            let Some((psp22_tokens, a0_coins)) = get_account_locked_tokens_res.return_value().ok() else { panic!("test") };
+        
+            // Validate that TPA really holds the PSP22 tokens that remains
+            assert_eq!(psp22_tokens, 50000000000000);
+
+            // Validate that TPA really holds the A0 coins that remains
+            assert_eq!(a0_coins, 5000500000000);
+
+            Ok(())
+
+        }
+
+        ///Tests included in 'get_price_for_one_psp22_works':
+        /// 1. provide_to_pool
+        /// 2. get_price_for_one_psp22
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_price_for_one_psp22_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the price for one PSP22 token
+            let get_price_for_one_psp22 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_price_for_one_psp22());
+        
+            // Call and fetch the results
+            let get_price_for_one_psp22_res = client
+                .call(&ink_e2e::alice(), get_price_for_one_psp22, 0, None)
+                .await
+                .expect("get_price_for_one_psp22 failed");
+        
+            // Retrieve the price for one PSP22 token
+            let Some(price) = get_price_for_one_psp22_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected price
+            assert_eq!(price, 99019801980);
+        
+            /* */
+        
+            Ok(())
+        }
+
+        ///Tests included in 'get_est_price_psp22_to_a0_works'
+        /// 1. provide_to_pool
+        /// 2. get_est_price_psp22_to_a0
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_est_price_psp22_to_a0_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the estimated price of PSP22 tokens to A0 tokens
+            let get_est_price_psp22_to_a0 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_est_price_psp22_to_a0(1000000000000));
+        
+            // Call and fetch the results
+            let get_est_price_psp22_to_a0_res = client
+                .call(&ink_e2e::alice(), get_est_price_psp22_to_a0, 0, None)
+                .await
+                .expect("get_est_price_psp22_to_a0 failed");
+        
+            // Retrieve the estimated price of PSP22 tokens to A0 tokens
+            let Some(price) = get_est_price_psp22_to_a0_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected price
+            assert_eq!(price, 99019801980);
+        
+            /* */
+        
+            Ok(())
+        }
+
+        ///Tests included in 'get_est_price_a0_to_psp22_for_swap_works'
+        /// 1. provide_to_pool
+        /// 2. get_est_price_a0_to_psp22_for_swap
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_est_price_a0_to_psp22_for_swap_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the estimated price of A0 tokens to PSP22 tokens for swapping
+            let get_est_price_a0_to_psp22_for_swap = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_est_price_a0_to_psp22_for_swap(1000000000000));
+        
+            // Call and fetch the results
+            let get_est_price_a0_to_psp22_for_swap_res = client
+                .call(&ink_e2e::alice(), get_est_price_a0_to_psp22_for_swap, 0, None)
+                .await
+                .expect("get_est_price_a0_to_psp22_for_swap failed");
+        
+            // Retrieve the estimated price of A0 tokens to PSP22 tokens for swapping
+            let Some(price) = get_est_price_a0_to_psp22_for_swap_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected price
+            assert_eq!(price, 9999000099990);
+        
+            /* */
+        
+            Ok(())
+        }
+
+        ///Test included in 'get_expected_lp_token_amount_works'
+        /// 1. get_expected_lp_token_amount
+        /// 2. provide_to_pool
+        /// 3. get_lp_token_of
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_expected_lp_token_amount_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            let amount: u128 = 10000000000000;
+        
+            // Build a message to get the expected amount of LP tokens for the given amount
+            let get_expected_lp_token_amount = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_expected_lp_token_amount(amount));
+        
+            // Call and fetch the results
+            let get_expected_lp_token_amount_res = client
+                .call(&ink_e2e::alice(), get_expected_lp_token_amount, 0, None)
+                .await
+                .expect("get_expected_lp_token_amount failed");
+        
+            // Retrieve the expected amount of LP tokens
+            let Some(expected_lp_shares) = get_expected_lp_token_amount_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected amount of LP tokens
+            assert_eq!(expected_lp_shares, 1000000000000000);
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the LP token balance of Alice's account
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+        
+            // Call and fetch the results
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_share_balance failed");
+        
+            // Assert the LP token balance of Alice's account
+            assert_eq!(get_lp_share_res.return_value(), 1000000000000000);
+        
+            Ok(())
+        }
+
+        ///Test included in 'get_est_price_a0_to_psp22_works'
+        /// 1. provide_to_pool
+        /// 2. get_est_price_a0_to_psp22
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_est_price_a0_to_psp22_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the estimated price from A0 to PSP22
+            let get_est_price_a0_to_psp22 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_est_price_a0_to_psp22(1000000000000));
+        
+            // Call and fetch the results
+            let get_est_price_a0_to_psp22_res = client
+                .call(&ink_e2e::alice(), get_est_price_a0_to_psp22, 0, None)
+                .await
+                .expect("get_est_price_a0_to_psp22 failed");
+        
+            // Retrieve the price
+            let Some(price) = get_est_price_a0_to_psp22_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected price
+            assert_eq!(price, 9090082719752);
+        
+            Ok(())
+        }
+
+        ///Test included in 'get_price_impact_psp22_to_a0_works'
+        /// 1. provide_to_pool
+        /// 2. get_price_impact_psp22_to_a0
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_price_impact_psp22_to_a0_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the price impact from PSP22 to A0
+            let get_price_impact_psp22_to_a0 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_price_impact_psp22_to_a0(1000000000000));
+        
+            // Call and fetch the results
+            let get_price_impact_psp22_to_a0_res = client
+                .call(&ink_e2e::alice(), get_price_impact_psp22_to_a0, 0, None)
+                .await
+                .expect("get_price_impact_psp22_to_a0 failed");
+        
+            // Retrieve the price
+            let Some(price) = get_price_impact_psp22_to_a0_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected price
+            assert_eq!(price, 96116878086);
+        
+            Ok(())
+        }
+
+        ///Tests included in 'get_price_impact_a0_to_psp22_works'
+        /// 1. provide_to_pool
+        /// 2. get_price_impact_a0_to_psp22
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn get_price_impact_a0_to_psp22_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // Create a PSP22 contract instance
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a TradingPairAzero contract instance
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve PSP22 contract to provide liquidity to TradingPairAzero contract
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzero contract
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Build a message to get the price impact from A0 to PSP22
+            let get_price_impact_a0_to_psp22 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_price_impact_a0_to_psp22(1000000000000));
+        
+            // Call and fetch the results
+            let get_price_impact_a0_to_psp22_res = client
+                .call(&ink_e2e::alice(), get_price_impact_a0_to_psp22, 0, None)
+                .await
+                .expect("get_price_impact_a0_to_psp22 failed");
+        
+            // Retrieve the price
+            let Some(price) = get_price_impact_a0_to_psp22_res.return_value().ok() else { panic!("test") };
+        
+            // Assert the expected price
+            assert_eq!(price, 7505697448706);
+        
+            Ok(())
+        }
+
+        ///Tests included in 'swap_psp22_works'
+        /// 1. provide_to_pool
+        /// 2. get_est_price_psp22_to_a0
+        /// 3. swap_psp22
+        /// 4. get_a0_balance
+        /// 5. get_generated_lp_fees
+        /// 6. get_a0_difference_by_percentage
+        /// 7. get_account_overall_lp_fee_rewards
+        /// 8. withdraw_specific_amount
+        /// 9. get_psp22_balance
+        /// 10. get_a0_lp_fee_tokens
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn swap_psp22_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Instantiate MyPsp22Ref contract
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Instantiate TradingPairAzeroRef contract
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id, 1000000000000, psp22_acc_id, get_charlie_account_id());
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve MyPsp22Ref to provide liquidity to TradingPairAzeroRef
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide liquidity to TradingPairAzeroRef
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Get the balance of MyPsp22Ref for Alice account
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_alice_account_id()));
+            
+            // Call and fetch the results
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+            let psp22_balance = psp22_balance_of_res.return_value();
+            
+            // Verify the balance of MyPsp22Ref for Alice account
+            assert_eq!(psp22_balance, 9900000000000000);
+        
+            // Approve MyPsp22Ref to provide liquidity to TradingPairAzeroRef again
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Get estimated price of MyPsp22Ref to Azero token in TradingPairAzeroRef
+            let get_est_price_psp22_to_a0 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_est_price_psp22_to_a0(1000000000000));
+        
+            // Call and fetch the results
+            let get_est_price_psp22_to_a0_res = client
+                .call(&ink_e2e::alice(), get_est_price_psp22_to_a0, 0, None)
+                .await
+                .expect("get_est_price_psp22_to_a0 failed");
+
+            let Some(price) = get_est_price_psp22_to_a0_res.return_value().ok() else { panic!("failed!") };
+            
+            // Verify the estimated price of MyPsp22Ref to Azero token
+            assert_eq!(price, 99019801980);
+        
+            // Swap MyPsp22Ref for Azero token
+            let swap_psp22 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.swap_psp22(1000000000000, price, 500000000000));
+            client
+                .call(&ink_e2e::alice(), swap_psp22, 0, None)
+                .await
+                .expect("calling `swap_psp22` failed");
+        
+            // Get the balance of MyPsp22Ref for Alice account after swapping
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_alice_account_id()));
+        
+            // Call and fetch the results
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+
+            let psp22_balance = psp22_balance_of_res.return_value();
+            
+            // Verify the balance of MyPsp22Ref for Alice account after swapping
+            assert_eq!(psp22_balance, 9899000000000000);
+        
+            // Get the balance of Azero token in TradingPairAzeroRef
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_balance failed");
+        
+            // Verify the balance of Azero token in TradingPairAzeroRef
+            assert_eq!(get_a0_res.return_value(), 9902970396039);
+        
+            // Get the balance of MyPsp22Ref in TradingPairAzeroRef
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_balance failed");
+        
+            // Verify the balance of MyPsp22Ref in TradingPairAzeroRef
+            assert_eq!(get_psp22_res.return_value(), 100998000000000);
+        
+            // Get the balance of MyPsp22Ref for Charlie account after swapping
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_charlie_account_id()));
+        
+            // Call and fetch the results
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+            let psp22_balance = psp22_balance_of_res.return_value();
+            
+            // Verify the balance of MyPsp22Ref for Charlie account after swapping
+            assert_eq!(psp22_balance, 2000000000);
+        
+            // Get the generated LP fees in TradingPairAzeroRef
+            let get_generated_lp_fees = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_generated_lp_fees());
+        
+            // Call and fetch the results
+            let get_generated_lp_fees_res = client
+                .call(&ink_e2e::alice(), get_generated_lp_fees, 0, None)
+                .await
+                .expect("get_generated_lp_fees failed");
+
+            let (psp22_fees, a0_fees) = get_generated_lp_fees_res.return_value();
+        
+            // Verify the generated LP fees in TradingPairAzeroRef
+            assert_eq!(psp22_fees, 0);
+
+            assert_eq!(a0_fees, 990198019);
+            
+            // Get the percentage difference of Azero LP fees
+            let get_a0_difference_by_percentage = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_difference_by_percentage());
+        
+            // Call and fetch the results
+            let get_a0_difference_by_percentage_res = client
+                .call(&ink_e2e::alice(), get_a0_difference_by_percentage, 0, None)
+                .await
+                .expect("get_a0_difference_by_percentage failed");
+            let Some(a0_lp_fee_diff) = get_a0_difference_by_percentage_res.return_value().ok() else { panic!("test") };
+        
+            // Verify the percentage difference of Azero LP fees
+            assert_eq!(a0_lp_fee_diff, 9998500200);
+        
+            let amount: u128 = 500000000000000;
+        
+            // Withdraw a specific amount from the pool
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw_from_pool failed");
+        
+            // Get the overall LP fee rewards for Alice account
+            let get_account_overall_lp_fee_rewards = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_account_overall_lp_fee_rewards(get_alice_account_id()));
+        
+            // Call and fetch the results
+            let get_account_overall_lp_fee_rewards_res = client
+                .call(&ink_e2e::alice(), get_account_overall_lp_fee_rewards, 0, None)
+                .await
+                .expect("get_account_overall_lp_fee_rewards failed");
+
+            let (psp22_fees, a0_fees) = get_account_overall_lp_fee_rewards_res.return_value();
+        
+            // Verify the overall LP fee rewards for Alice account
+            assert_eq!(psp22_fees, 0);
+
+            assert_eq!(a0_fees, 495099009);
+        
+            // Get A0 LP fee tokens
+            let get_a0_lp_fee_tokens = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_lp_fee_tokens(amount));
+        
+            let get_a0_lp_fee_tokens_res = client
+                .call(&ink_e2e::alice(), get_a0_lp_fee_tokens, 0, None)
+                .await
+                .expect("get_a0_lp_fee_tokens failed");
+        
+            let Some(a0_lp_fee) = get_a0_lp_fee_tokens_res.return_value().ok() else {
+                panic!("failed!")
+            };
+        
+            assert_eq!(a0_lp_fee, 495099010);
+                
+            Ok(())
+        }
+        
+        ///Tests included in 'swap_a0_works'
+        /// 1. provide_to_pool
+        /// 2. swap_a0
+        /// 3. get_a0_balance
+        /// 4. get_psp22_balance
+        /// 5. get_generated_lp_fees
+        /// 6. get_contract_overall_generated_fee
+        /// 7. get_psp22_difference_by_percentage
+        /// 8. withdraw_specific_amount
+        /// 9. get_account_overall_lp_fee_rewards
+        /// 10.get_psp22_lp_fee_tokens
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn swap_a0_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // Create and initialize MyPsp22 contract
+            let psp22_constructor = MyPsp22Ref::new(
+                10000000000000000,
+                Some(String::from("TOKEN").into()),
+                Some(String::from("TKN").into()),
+                12,
+            );
+        
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create and initialize TradingPairAzero contract
+            let tpa_constructor = TradingPairAzeroRef::new(
+                psp22_acc_id,
+                1000000000000,
+                psp22_acc_id,
+                get_charlie_account_id(),
+            );
+        
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve MyPsp22 to provide LP to TradingPairAzero
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id, 100000000000000));
+        
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide LP to TradingPairAzero
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+        
+            let amount: u128 = 10000000000000;
+        
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Fetch the estimated price for swap
+            let get_est_price_a0_to_psp22_for_swap = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_est_price_a0_to_psp22_for_swap(100000000000));
+        
+            let get_est_price_a0_to_psp22_for_swap_res = client
+                .call(&ink_e2e::alice(), get_est_price_a0_to_psp22_for_swap, 0, None)
+                .await
+                .expect("get_est_price_a0_to_psp22_for_swap failed");
+        
+            let Some(price) = get_est_price_a0_to_psp22_for_swap_res.return_value().ok() else { panic!("failed!") };
+        
+            assert_eq!(price, 999900009999);
+        
+            // Perform the swap
+            let swap_a0 = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.swap_a0(price, 1000000000000));
+        
+            let amount: u128 = 100000000000;
+        
+            client
+                .call(&ink_e2e::alice(), swap_a0, amount, None)
+                .await
+                .expect("calling `swap_a0` failed");
+        
+            // Check MyPsp22 balance
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_alice_account_id()));
+        
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+        
+            let psp22_balance = psp22_balance_of_res.return_value();
+        
+            assert_eq!(psp22_balance, 9900978120978120);
+        
+            // Get TradingPairAzero a0 balance
+            let get_a0_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_a0_balance());
+        
+            let get_a0_res = client
+                .call(&ink_e2e::alice(), get_a0_balance, 0, None)
+                .await
+                .expect("get_a0_balance failed");
+        
+            assert_eq!(get_a0_res.return_value(), 10100800000000);
+        
+            // Get TradingPairAzero MyPsp22 balance
+            let get_psp22_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_balance());
+        
+            let get_psp22_res = client
+                .call(&ink_e2e::alice(), get_psp22_balance, 0, None)
+                .await
+                .expect("get_psp22_balance failed");
+        
+            assert_eq!(get_psp22_res.return_value(), 99019899019900);
+        
+            // Check MyPsp22 balance for Charlie
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_charlie_account_id()));
+        
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+        
+            let psp22_balance = psp22_balance_of_res.return_value();
+        
+            assert_eq!(psp22_balance, 1980001980);
+        
+            // Get generated LP fees
+            let get_generated_lp_fees = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_generated_lp_fees());
+        
+            let get_generated_lp_fees_res = client
+                .call(&ink_e2e::alice(), get_generated_lp_fees, 0, None)
+                .await
+                .expect("get_generated_lp_fees failed");
+        
+            let (psp22_fees, a0_fees) = get_generated_lp_fees_res.return_value();
+        
+            assert_eq!(psp22_fees, 9900009900);
+            assert_eq!(a0_fees, 0);
+        
+            // Get overall generated fees by the contract
+            let get_contract_overall_generated_fee = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_contract_overall_generated_fee());
+        
+            let get_contract_overall_generated_fee_res = client
+                .call(&ink_e2e::alice(), get_contract_overall_generated_fee, 0, None)
+                .await
+                .expect("get_contract_overall_generated_fee failed");
+        
+            let (psp22_fees, a0_fees) = get_contract_overall_generated_fee_res.return_value();
+        
+            assert_eq!(psp22_fees, 9900009900);
+            assert_eq!(a0_fees, 0);
+        
+            // Get MyPsp22 difference by percentage
+            let get_psp22_difference_by_percentage = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_difference_by_percentage());
+        
+            let get_psp22_difference_by_percentage_res = client
+                .call(&ink_e2e::alice(), get_psp22_difference_by_percentage, 0, None)
+                .await
+                .expect("get_psp22_difference_by_percentage failed");
+        
+            let Some(psp22_lp_fee_diff) = get_psp22_difference_by_percentage_res.return_value().ok() else {
+                panic!("failed!")
+            };
+        
+            assert_eq!(psp22_lp_fee_diff, 9997500600);
+        
+            // Withdraw from the pool
+            let withdraw_from_pool = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.withdraw_specific_amount(amount));
+        
+            client
+                .call(&ink_e2e::alice(), withdraw_from_pool, 0, None)
+                .await
+                .expect("withdraw_from_pool failed");
+        
+            // Get account overall LP fee rewards
+            let get_account_overall_lp_fee_rewards = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_account_overall_lp_fee_rewards(get_alice_account_id()));
+        
+            let get_account_overall_lp_fee_rewards_res = client
+                .call(&ink_e2e::alice(), get_account_overall_lp_fee_rewards, 0, None)
+                .await
+                .expect("get_account_overall_lp_fee_rewards failed");
+        
+            let (psp22_fees, a0_fees) = get_account_overall_lp_fee_rewards_res.return_value();
+        
+            assert_eq!(psp22_fees, 990000);
+            assert_eq!(a0_fees, 0);
+        
+            // Get PSP22 LP fee tokens
+            let get_psp22_lp_fee_tokens = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_psp22_lp_fee_tokens(amount));
+        
+            let get_psp22_lp_fee_tokens_res = client
+                .call(&ink_e2e::alice(), get_psp22_lp_fee_tokens, 0, None)
+                .await
+                .expect("get_psp22_lp_fee_tokens failed");
+        
+            let Some(psp22_lp_fee) = get_psp22_lp_fee_tokens_res.return_value().ok() else {
+                panic!("failed!")
+            };
+        
+            assert_eq!(psp22_lp_fee, 990000);
+        
+            Ok(())
+        }
+
+        ///Tests included in 'transfer_lp_tokens_works'
+        /// 1. provide_to_tpa
+        /// 2. get_lp_token_of
+        /// 3. transfer_lp_tokens
+        /// 4. get_lp_token_of
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn transfer_lp_tokens_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // Instantiate MyPsp22 contract
+            let psp22_constructor = MyPsp22Ref::new(
+                10000000000000000,
+                Some(String::from("TOKEN").into()),
+                Some(String::from("TKN").into()),
+                12,
+            );
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Instantiate TradingPairAzero contract
+            let tpa_constructor = TradingPairAzeroRef::new(
+                psp22_acc_id.clone(),
+                1000000000000,
+                psp22_acc_id.clone(),
+                get_charlie_account_id(),
+            );
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Approve MyPsp22 contract to provide LP tokens to TradingPairAzero
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id.clone(), 100000000000000));
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+        
+            // Provide LP tokens to TradingPairAzero
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000, 1000000000000000, 500000000000));
+            let amount: u128 = 10000000000000;
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+        
+            // Check LP token balance for Alice
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_share_balance failed");
+
+            assert_eq!(get_lp_share_res.return_value(), 1000000000000000);
+        
+            // Transfer LP tokens from Alice to Bob
+            let transfer_lp_tokens = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.transfer_lp_tokens(get_bob_account_id(), 500000000000000));
+            client
+                .call(&ink_e2e::alice(), transfer_lp_tokens, 0, None)
+                .await
+                .expect("calling `transfer_lp_tokens` failed");
+        
+            // Check LP token balance for Alice after transfer
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_share_balance failed");
+
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+        
+            // Check LP token balance for Bob after transfer
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_bob_account_id()));
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get failed");
+
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+        
+            Ok(())
+
+        }
+
+        ///Tests included in 'transfer_lp_tokens_from_to_works'
+        /// 1. provide_to_pool
+        /// 2. get_lp_token_of
+        /// 3. approve_lp_tokens
+        /// 4. get_lp_tokens_allowance
+        /// 5. transfer_lp_tokens_from_to
+        /// 6. 
+        #[ink_e2e::test( additional_contracts = "../my_psp22/Cargo.toml" )]
+        async fn transfer_lp_tokens_from_to_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+            // Instantiate MyPsp22 contract
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000,Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+            
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+
+            // Instantiate TradingPairAzero contract
+            let tpa_constructor = TradingPairAzeroRef::new(psp22_acc_id,1000000000000,psp22_acc_id,get_charlie_account_id());
+            
+            let tpa_acc_id = client
+                .instantiate("trading_pair_azero", &ink_e2e::alice(), tpa_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+
+            // Approve MyPsp22 to provide LP tokens to TradingPairAzero
+            let approve_psp22_to_provide_lp = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.approve(tpa_acc_id,100000000000000));
+
+            client
+                .call(&ink_e2e::alice(), approve_psp22_to_provide_lp, 0, None)
+                .await
+                .expect("calling `approve_psp22_to_provide_lp` failed");
+
+            // Provide LP tokens to TradingPairAzero
+            let provide_to_tpa = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.provide_to_pool(100000000000000,1000000000000000,500000000000));
+
+            let amount: u128 = 10000000000000;
+
+            client
+                .call(&ink_e2e::alice(), provide_to_tpa, amount, None)
+                .await
+                .expect("calling `provide_to_tpa` failed");
+
+            // Get LP share balance of Alice
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get_lp_share_balance failed");
+
+            assert_eq!(get_lp_share_res.return_value(), 1000000000000000);
+
+            // Approve LP tokens for Bob
+            let approve_lp_tokens = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.approve_lp_tokens(get_bob_account_id(),500000000000000));
+
+            client
+                .call(&ink_e2e::alice(), approve_lp_tokens, 0, None)
+                .await
+                .expect("calling `approve_lp_tokens` failed");
+
+            // Get LP tokens allowance from Alice to Bob
+            let get_lp_tokens_allowance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_tokens_allowance(get_alice_account_id(),get_bob_account_id()));
+
+            let get_lp_tokens_allowance_res = client
+                .call(&ink_e2e::alice(), get_lp_tokens_allowance, 0, None)
+                .await
+                .expect("get_lp_tokens_allowance failed");
+
+            assert_eq!(get_lp_tokens_allowance_res.return_value(), 500000000000000);
+
+            // Transfer LP tokens from Alice to Bob
+            let transfer_lp_tokens_from_to = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.transfer_lp_tokens_from_to(get_alice_account_id(),get_bob_account_id(),500000000000000));
+
+            client
+                .call(&ink_e2e::alice(), transfer_lp_tokens_from_to, 0, None)
+                .await
+                .expect("calling `transfer_lp_tokens_from_to` failed");
+
+            // Get LP share balance of Alice after transfer
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_alice_account_id()));
+
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get failed");
+
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+
+            // Get LP share balance of Bob after transfer
+            let get_lp_share_balance = build_message::<TradingPairAzeroRef>(tpa_acc_id.clone())
+                .call(|trading_pair_azero| trading_pair_azero.get_lp_token_of(get_bob_account_id()));
+
+            let get_lp_share_res = client
+                .call(&ink_e2e::alice(), get_lp_share_balance, 0, None)
+                .await
+                .expect("get failed");
+
+            assert_eq!(get_lp_share_res.return_value(), 500000000000000);
+
+            Ok(())
+        }       
+
+    }
+    
+
 }
+
