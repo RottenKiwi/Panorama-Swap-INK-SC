@@ -30,6 +30,18 @@ airdrop_contract is a smart contract that contains all the logic for the airdrop
 ### multi_sig
 multi_sig is a smart contract that contains all the logic for a multiple signatures wallet on the Panorama Swap platform. This contract provides a secure and decentralized way to manage funds by requiring multiple signatures for certain operations, ensuring increased security and accountability.
 
+## How to build and deploy the contracts
+
+To build, compile and deploy your smart contract on Aleph Zero, you will need to install the development tools. the following link is to a great guide from Aleph Zero team: https://docs.alephzero.org/aleph-zero/build/installing-required-tools
+
+**Enter to any smart contract that you wish to compile and build:**
+
+```
+cargo +nightly contract build --release
+```
+
+**After you successfully compile your contracts, you'll see** ```contract_name.contract``` **, which you'll need in order to deploy the smart contract to the Aleph Zero network, here is a great guide by the Aleph Zero team on how to deploy your contracts: ** [https://docs.alephzero.org/aleph-zero/build/aleph-zero-smart-contracts-basics/deploying-your-contract-to-aleph-zero-testnet](https://docs.alephzero.org/aleph-zero/build/aleph-zero-smart-contracts-basics/deploying-your-contract-to-aleph-zero-testnet)
+
 ## Useful Links
 
 - Panorama Swap DAPP: [https://panoramaswap.app/](https://panoramaswap.app/)
@@ -39,3 +51,4 @@ multi_sig is a smart contract that contains all the logic for a multiple signatu
 - ink! GitHub repository: [https://github.com/paritytech/ink](https://github.com/paritytech/ink)
 - OpenBrush's GitHub repository: [https://github.com/Supercolony-net/openbrush-contracts](https://github.com/Supercolony-net/openbrush-contracts)
 - Substrate GitHub repository: [https://github.com/paritytech/substrate](https://github.com/paritytech/substrate)
+
