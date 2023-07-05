@@ -19,3 +19,5 @@ Cargo.lock
 /staking_contract/
 **/trading_pair_astar/
 */trading_pair_astar
+*/zero_airdrop
+**/zero_airdrop

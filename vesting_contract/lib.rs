@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(default_alloc_error_handler)]
-
+#![feature(min_specialization)]
 
 
 #[ink::contract]
@@ -507,4 +506,305 @@ pub mod vesting_contract {
             Ok(days_diff)
         }
     }
+
+
+    /// ink! end-to-end (E2E) tests
+    ///
+    /// cargo test --features e2e-tests -- --nocapture
+    ///
+    #[cfg(all(test, feature = "e2e-tests"))]
+    mod e2e_tests {
+        use super::*;
+        use ink::primitives::AccountId;
+        use ink_e2e::build_message;
+        use openbrush::contracts::psp22::psp22_external::PSP22;
+        use my_psp22::my_psp22::MyPsp22Ref;
+
+        type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+        fn get_bob_account_id() -> AccountId {
+            let bob = ink_e2e::bob::<ink_e2e::PolkadotConfig>();
+            let bob_account_id_32 = bob.account_id();
+            let bob_account_id = AccountId::try_from(bob_account_id_32.as_ref()).unwrap();
+
+            bob_account_id
+        }
+        
+        ///Tests included in "add_accout_with_tge":
+        /// 1. get_vesting_contract_panx_reserve
+        /// 2. add_to_vesting
+        /// 3. user_tge_collection_status
+        /// 4. get_amount_to_give_each_day_to_account_res
+        /// 5. get_account_total_vesting_amount
+        #[ink_e2e::test( additional_contracts = "../my_psp22/Cargo.toml" )]
+        async fn add_account_with_tge(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+        
+            // Create a new instance of MyPsp22Ref
+            let psp22_constructor = MyPsp22Ref::new(10000000000000000, Some(String::from("TOKEN").into()), Some(String::from("TKN").into()), 12);
+        
+            // Instantiate the MyPsp22 contract and obtain the account ID
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a new instance of VestingContractRef
+            let vesting_constructor = VestingContractRef::new(psp22_acc_id);
+        
+            // Instantiate the VestingContract and obtain the account ID
+            let vesting_acc_id = client
+                .instantiate("vesting_contract", &ink_e2e::alice(), vesting_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+        
+            // Build a transfer_to_vesting message
+            let transfer_to_vesting = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.transfer(vesting_acc_id, 1000000000000000, vec![]));
+        
+            // Call the transfer_to_vesting message
+            client
+                .call(&ink_e2e::alice(), transfer_to_vesting, 0, None)
+                .await
+                .expect("calling `transfer_to_vesting` failed");
+        
+            // Build a get_vesting_contract_panx_reserve message
+            let get_vesting_contract_panx_reserve = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_vesting_contract_panx_reserve());
+        
+            // Call the get_vesting_contract_panx_reserve message
+            let get_vesting_contract_panx_reserve_res = client
+                .call(&ink_e2e::alice(), get_vesting_contract_panx_reserve, 0, None)
+                .await
+                .expect("get_vesting_contract_panx_reserve failed");
+        
+            // Assert that the return value of get_vesting_contract_panx_reserve is 1000000000000000
+            assert_eq!(get_vesting_contract_panx_reserve_res.return_value(), 1000000000000000);
+        
+            // Build an add_to_vesting message
+            let add_to_vesting = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.add_to_vesting(get_bob_account_id(), 1000000000000000));
+        
+            // Call the add_to_vesting message
+            client
+                .call(&ink_e2e::alice(), add_to_vesting, 0, None)
+                .await
+                .expect("calling `add_to_vesting` failed");
+        
+            // Build a user_tge_collection_status message
+            let user_tge_collection_status = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.user_tge_collection_status(get_bob_account_id()));
+        
+            // Call the user_tge_collection_status message
+            let user_tge_collection_status_res = client
+                .call(&ink_e2e::alice(), user_tge_collection_status, 0, None)
+                .await
+                .expect("user_tge_collection_status failed");
+        
+            // Assert that the return value of user_tge_collection_status is 0
+            assert_eq!(user_tge_collection_status_res.return_value(), 0);
+        
+            // Build a get_amount_to_give_each_day_to_account message
+            let get_amount_to_give_each_day_to_account = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_amount_to_give_each_day_to_account(get_bob_account_id()));
+        
+            // Call the get_amount_to_give_each_day_to_account message
+            let get_amount_to_give_each_day_to_account_res = client
+                .call(&ink_e2e::alice(), get_amount_to_give_each_day_to_account, 0, None)
+                .await
+                .expect("get_amount_to_give_each_day_to_account failed");
+        
+            // Assert that the return value of get_amount_to_give_each_day_to_account is 2739726027397
+            assert_eq!(get_amount_to_give_each_day_to_account_res.return_value(), 2739726027397);
+        
+            // Build a get_current_timestamp message
+            let get_current_timestamp = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_current_timestamp());
+        
+            // Call the get_current_timestamp message
+            let get_current_timestamp_res = client
+                .call(&ink_e2e::alice(), get_current_timestamp, 0, None)
+                .await
+                .expect("get_current_timestamp failed");
+        
+            // Build a get_account_last_redeem message
+            let get_account_last_redeem = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_account_last_redeem(get_bob_account_id()));
+        
+            // Call the get_account_last_redeem message
+            let get_account_last_redeem_res = client
+                .call(&ink_e2e::alice(), get_account_last_redeem, 0, None)
+                .await
+                .expect("get_account_last_redeem failed");
+        
+            // Assert that the return value of get_account_last_redeem is equal to the return value of get_current_timestamp
+            // Might get an error here because the timestamp is very narrow, re-run the e2e and check again
+            assert_eq!(get_account_last_redeem_res.return_value(), get_current_timestamp_res.return_value());
+        
+            // Build a psp22_balance_of message
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_bob_account_id()));
+        
+            // Call the psp22_balance_of message
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+        
+            // Get the return value of psp22_balance_of
+            let psp22_balance = psp22_balance_of_res.return_value();
+        
+            // Assert that the psp22_balance is 0
+            assert_eq!(psp22_balance, 0);
+        
+            // Build a collect_tge_tokens message
+            let collect_tge_tokens = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.collect_tge_tokens());
+        
+            // Call the collect_tge_tokens message
+            client
+                .call(&ink_e2e::bob(), collect_tge_tokens, 0, None)
+                .await
+                .expect("calling `collect_tge_tokens` failed");
+        
+            // Build another get_current_timestamp message
+            let get_current_timestamp = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_current_timestamp());
+        
+            // Call the get_current_timestamp message
+            let get_current_timestamp_res = client
+                .call(&ink_e2e::alice(), get_current_timestamp, 0, None)
+                .await
+                .expect("get_current_timestamp failed");
+        
+            // Build another get_account_last_redeem message
+            let get_account_last_redeem = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_account_last_redeem(get_bob_account_id()));
+        
+            // Call the get_account_last_redeem message
+            let get_account_last_redeem_res = client
+                .call(&ink_e2e::alice(), get_account_last_redeem, 0, None)
+                .await
+                .expect("get_account_last_redeem failed");
+        
+            // Assert that the return value of get_account_last_redeem is equal to the return value of get_current_timestamp
+            // Might get an error here because the timestamp is very narrow, re-run the e2e and check again
+            assert_eq!(get_account_last_redeem_res.return_value(), get_current_timestamp_res.return_value());
+        
+            // Build another psp22_balance_of message
+            let psp22_balance_of = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.balance_of(get_bob_account_id()));
+        
+            // Call the psp22_balance_of message
+            let psp22_balance_of_res = client
+                .call(&ink_e2e::alice(), psp22_balance_of, 0, None)
+                .await
+                .expect("psp22_balance_of failed");
+        
+            // Get the return value of psp22_balance_of
+            let psp22_balance = psp22_balance_of_res.return_value();
+        
+            // Assert that the psp22_balance is 100000000000000
+            assert_eq!(psp22_balance, 100000000000000);
+        
+            // Build a get_account_total_vesting_amount message
+            let get_account_total_vesting_amount = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_account_total_vesting_amount(get_bob_account_id()));
+        
+            // Call the get_account_total_vesting_amount message
+            let get_account_total_vesting_amount_res = client
+                .call(&ink_e2e::alice(), get_account_total_vesting_amount, 0, None)
+                .await
+                .expect("get_account_total_vesting_amount failed");
+        
+            // Assert that the return value of get_account_total_vesting_amount is 900000000000000
+            assert_eq!(get_account_total_vesting_amount_res.return_value(), 900000000000000);
+        
+            Ok(())
+        }
+
+        ///Tests included in "daily_claim":
+        /// 1. get_redeemable_amount
+        /// 2. get_vesting_contract_panx_reserve
+        /// 3. add_to_vesting
+        /// 4. get_redeemable_amount
+        #[ink_e2e::test(additional_contracts = "../my_psp22/Cargo.toml")]
+        async fn daily_claim(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Create a new instance of the MyPsp22 contract
+            let psp22_constructor = MyPsp22Ref::new(
+                10000000000000000,
+                Some(String::from("TOKEN").into()),
+                Some(String::from("TKN").into()),
+                12,
+            );
+        
+            // Instantiate the MyPsp22 contract
+            let psp22_acc_id = client
+                .instantiate("my_psp22", &ink_e2e::alice(), psp22_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Create a new instance of the VestingContract
+            let vesting_constructor = VestingContractRef::new(psp22_acc_id);
+        
+            // Instantiate the VestingContract
+            let vesting_acc_id = client
+                .instantiate("vesting_contract", &ink_e2e::alice(), vesting_constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+        
+            // Build a transfer_to_vesting message
+            let transfer_to_vesting = build_message::<MyPsp22Ref>(psp22_acc_id.clone())
+                .call(|my_psp22| my_psp22.transfer(vesting_acc_id, 1000000000000000, vec![]));
+        
+            // Call the transfer_to_vesting message
+            client
+                .call(&ink_e2e::alice(), transfer_to_vesting, 0, None)
+                .await
+                .expect("calling `transfer_to_vesting` failed");
+        
+            // Build a get_vesting_contract_panx_reserve message
+            let get_vesting_contract_panx_reserve =
+                build_message::<VestingContractRef>(vesting_acc_id.clone())
+                    .call(|vesting_contract| vesting_contract.get_vesting_contract_panx_reserve());
+        
+            // Call the get_vesting_contract_panx_reserve message
+            let get_vesting_contract_panx_reserve_res = client
+                .call(&ink_e2e::alice(), get_vesting_contract_panx_reserve, 0, None)
+                .await
+                .expect("get_vesting_contract_panx_reserve failed");
+        
+            // Assert that the return value of get_vesting_contract_panx_reserve is 1000000000000000
+            assert_eq!(get_vesting_contract_panx_reserve_res.return_value(), 1000000000000000);
+        
+            // Build an add_to_vesting message
+            let add_to_vesting = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.add_to_vesting(get_bob_account_id(), 1000000000000000));
+        
+            // Call the add_to_vesting message
+            client
+                .call(&ink_e2e::alice(), add_to_vesting, 0, None)
+                .await
+                .expect("calling `add_to_vesting` failed");
+        
+            // Build a get_redeemable_amount message
+            let get_redeemable_amount = build_message::<VestingContractRef>(vesting_acc_id.clone())
+                .call(|vesting_contract| vesting_contract.get_redeemable_amount());
+        
+            // Assert that calling get_redeemable_amount with Bob's account fails
+            assert!(client
+                .call(&ink_e2e::bob(), get_redeemable_amount, 0, None)
+                .await
+                .is_err());
+        
+            Ok(())
+            
+        }
+
+    }
+
 }

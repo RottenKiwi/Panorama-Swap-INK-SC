@@ -1,5 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
+#![feature(default_alloc_error_handler)]
 
 pub use self::multi_sig::{
 	MultiSig,

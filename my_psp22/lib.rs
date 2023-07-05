@@ -1,33 +1,35 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
+pub use self::my_psp22::MyPsp22Ref;
+
 #[openbrush::contract]
 pub mod my_psp22 {
-
 
     use openbrush::{
         contracts::psp22::extensions::metadata::*,
         traits::{
             Storage,
-            String
+            String,
         },
     };
 
 
+
     #[ink(storage)]
     #[derive(Default, Storage)]
-    pub struct Contract {
+    pub struct MyPsp22 {
         #[storage_field]
         psp22: psp22::Data,
         #[storage_field]
         metadata: metadata::Data,
     }
 
-    impl PSP22 for Contract {}
+    impl PSP22 for MyPsp22 {}
 
-    impl PSP22Metadata for Contract {}
+    impl PSP22Metadata for MyPsp22 {}
 
-    impl Contract {
+    impl MyPsp22 {
         #[ink(constructor)]
         pub fn new(total_supply: Balance, name: Option<String>, symbol: Option<String>, decimal: u8) -> Self {
             let mut instance = Self::default();
@@ -40,6 +42,7 @@ pub mod my_psp22 {
                 .expect("Should mint total_supply");
 
             instance
+
         }
     }
 }
