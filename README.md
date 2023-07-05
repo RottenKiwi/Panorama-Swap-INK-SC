@@ -34,13 +34,37 @@ multi_sig is a smart contract that contains all the logic for a multiple signatu
 
 To build, compile and deploy your smart contract on Aleph Zero, you will need to install the development tools. the following link is to a great guide from Aleph Zero team: https://docs.alephzero.org/aleph-zero/build/installing-required-tools
 
-**Enter to any smart contract that you wish to compile and build:**
+**Enter to any smart contract that you wish to compile and build, for example AIRDROP_CONTRACT:**
 
 ```
+cd airdrop_contract
 cargo +nightly contract build --release
 ```
 
-**After you successfully compile your contracts, you'll see** ```contract_name.contract``` **, which you'll need in order to deploy the smart contract to the Aleph Zero network, here is a great guide by the Aleph Zero team on how to deploy your contracts: ** [https://docs.alephzero.org/aleph-zero/build/aleph-zero-smart-contracts-basics/deploying-your-contract-to-aleph-zero-testnet](https://docs.alephzero.org/aleph-zero/build/aleph-zero-smart-contracts-basics/deploying-your-contract-to-aleph-zero-testnet)
+**After you successfully compile your contracts, you'll see** ```contract_name.contract```
+**, which you'll need in order to deploy the smart contract to the Aleph Zero network, here is a great guide by the Aleph Zero team on how to deploy your contracts:** [https://docs.alephzero.org/aleph-zero/build/aleph-zero-smart-contracts-basics/deploying-your-contract-to-aleph-zero-testnet](https://docs.alephzero.org/aleph-zero/build/aleph-zero-smart-contracts-basics/deploying-your-contract-to-aleph-zero-testnet)
+
+## How to run e2e tests ##
+
+### prerequisites before running the e2e tests:
+
+you have to install a Substrate node with pallet-contracts. By default e2e tests require that you install substrate-contracts-node. You do not need to run it in the background since the node is started for each test independently. To install the latest version:
+```
+cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git
+```
+
+If you want to run any other node with pallet-contracts you need to change CONTRACTS_NODE environment variable:
+```
+export CONTRACTS_NODE="YOUR_CONTRACTS_NODE_PATH"
+```
+
+And finally enter the smart contract that you want execute (```airdrop_contract``` for example) the e2e tests and use the following command to start e2e test execution.
+
+```
+cd airdrop_contract
+cargo test --features e2e-tests
+```
+
 
 ## Useful Links
 
