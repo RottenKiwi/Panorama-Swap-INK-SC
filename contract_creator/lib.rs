@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(min_specialization)]
 
 
 #[ink::contract]
@@ -8,7 +9,7 @@ pub mod pair_creator {
 
     use ink::LangError;
     use trading_pair_psp22::TradingPairPsp22Ref;
-    use trading_pair_azero::TradingPairAzeroRef;
+    use trading_pair_azero::trading_pair_azero::TradingPairAzeroRef;
     use multi_sig::MultiSigRef;
 
 

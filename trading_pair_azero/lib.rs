@@ -53,6 +53,7 @@ pub mod trading_pair_azero {
         last_redeemed: Mapping<AccountId, u64>,
         // Staking percentage for LP tokens
         staking_percentage: Balance,
+
     }
 
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -123,7 +124,7 @@ pub mod trading_pair_azero {
         ) -> Self {
 
             let transasction_number: i64 = 0;  // Number of transactions initiated
-            let balances = Mapping::default();  // Mapping to store user balances
+            let balances: Mapping<ink::primitives::AccountId, u128, ink::storage::traits::ResolverKey<ink::storage::traits::AutoKey, ink::storage::traits::ManualKey<1968139566>>> = Mapping::default();  // Mapping to store user balances
             let lp_tokens_allowances = Mapping::default();  // Mapping to store LP token allowances
             let psp22_token = psp22_contract;  // Address of the PSP22 token contract
             let total_supply: Balance = 0;  // Total supply of LP tokens
@@ -139,7 +140,6 @@ pub mod trading_pair_azero {
             let staking_percentage = 2;  // Percentage of fees to be distributed as staking rewards
 
             // Return a new instance of TradingPairAzero with initialized variables
-
             Self {
                 transasction_number,
                 psp22_token,
@@ -2057,21 +2057,6 @@ pub mod trading_pair_azero {
             let time_stamp_in_seconds = self.env().block_timestamp() / 1000;
             time_stamp_in_seconds
 
-        }
-
-        #[ink(message)]
-        pub fn set_code(
-            &mut self,
-            code_hash: [u8; 32]
-        )   {
-            
-            ink::env::set_code_hash(&code_hash).unwrap_or_else(|err| {
-                panic!(
-                    "Failed to `set_code_hash` to {:?} due to {:?}",
-                    code_hash, err
-                )
-            });
-  
         }
 
 
