@@ -53,6 +53,8 @@ pub mod trading_pair_azero {
         last_redeemed: Mapping<AccountId, u64>,
         // Staking percentage for LP tokens
         staking_percentage: Balance,
+        // LP lock timestamp
+        lp_lock_timestamp: u64,
 
     }
 
@@ -77,6 +79,7 @@ pub mod trading_pair_azero {
         ZeroDailyA0,  // Error code for zero daily AZERO tokens
         UpdateIncentiveProgramError,  // Error code for update incentive program error
         RemoveLpIncentiveProgramError,  // Error code for remove LP incentive program error
+        LpStillLocked // Error code for remove LP before the lock date
 
     }
 
@@ -120,7 +123,9 @@ pub mod trading_pair_azero {
             psp22_contract: AccountId,  // Address of the PSP22 token contract
             fee: Balance,  // Fee to be charged for LP providers
             panx_contract: AccountId,  // Address of the PANX token contract
-            vault: AccountId  // Address of the vault where traders fees are sent
+            vault: AccountId,  // Address of the vault where traders fees are sent
+            lp_lock_timestamp: u64 // Lp lock timestamp
+
         ) -> Self {
 
             let transasction_number: i64 = 0;  // Number of transactions initiated
@@ -141,6 +146,7 @@ pub mod trading_pair_azero {
 
             // Return a new instance of TradingPairAzero with initialized variables
             Self {
+
                 transasction_number,
                 psp22_token,
                 fee,
@@ -158,7 +164,8 @@ pub mod trading_pair_azero {
                 account_overall_staking_rewards,
                 account_overall_lp_fee_rewards,
                 last_redeemed,
-                staking_percentage
+                staking_percentage,
+                lp_lock_timestamp
 
             }
 
@@ -173,9 +180,8 @@ pub mod trading_pair_azero {
             expected_lp_tokens: Balance, // Expected amount of LP tokens to be received
             slippage: Balance // Slippage tolerance percentage
         ) -> Result<(), TradingPairErrors> { // Function returns a Result with an error type TradingPairErrors or a unit type ()
-        
+            
             let caller = self.env().caller(); // Get the address of the caller
-        
             
             let caller_current_balance: Balance = PSP22Ref::balance_of( // Get the current balance of PSP22 tokens for the caller
                 &self.psp22_token,
@@ -293,6 +299,12 @@ pub mod trading_pair_azero {
             &mut self,
             shares: Balance //number of shares the caller wants to withdraw
         )   -> Result<(), TradingPairErrors>  {
+
+            if self.get_current_timestamp() < self.lp_lock_timestamp {
+
+                return Err(TradingPairErrors::LpStillLocked);
+
+            }
 
             //throw error is the caller tries to withdraw 0 LP shares
             if shares <= 0 {
@@ -2056,6 +2068,16 @@ pub mod trading_pair_azero {
 
             let time_stamp_in_seconds = self.env().block_timestamp() / 1000;
             time_stamp_in_seconds
+
+        }
+
+        ///function to get LP lock timestamp
+        #[ink(message)]
+        pub fn get_lp_lock_timestamp(
+            &self
+        ) -> u64 {
+
+            self.lp_lock_timestamp
 
         }
 

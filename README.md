@@ -76,3 +76,4 @@ cargo test --features e2e-tests
 - OpenBrush's GitHub repository: [https://github.com/Supercolony-net/openbrush-contracts](https://github.com/Supercolony-net/openbrush-contracts)
 - Substrate GitHub repository: [https://github.com/paritytech/substrate](https://github.com/paritytech/substrate)
 
+#astar-network #dAppStaking
