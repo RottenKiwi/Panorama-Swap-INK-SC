@@ -1,5 +1,5 @@
 [package]
-name = "my_psp22"
+name = "my_psp22_lp"
 version = "1.0.0"
 authors = ["Yonatan Hornstein <yonatan@panoramaswap.com>"]
 edition = "2021"
@@ -13,7 +13,7 @@ scale-info = { version = "2.6.0", default-features = false, features = ["derive"
 openbrush = { git = "https://github.com/Brushfam/openbrush-contracts", branch = "develop", default-features = false, features = ["psp22"] }
 
 [lib]
-name = "my_psp22"
+name = "my_psp22_lp"
 path = "lib.rs"
 crate-type = [
     # Used for normal contract Wasm blobs.
