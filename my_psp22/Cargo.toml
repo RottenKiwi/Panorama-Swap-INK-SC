@@ -8,11 +8,17 @@ overflow-checks = false
 [dependencies]
 ink = { version = "4.0.0", default-features = false }
 
-scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
-scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
+    "derive",
+] }
+scale-info = { version = "2.3", default-features = false, features = [
+    "derive",
+], optional = true }
 
 # Include brush as a dependency and enable default implementation for PSP22 via brush feature
-openbrush = { tag = "3.0.0", git = "https://github.com/727-Ventures/openbrush-contracts", default-features = false, features = ["psp22"] }
+openbrush = { tag = "3.0.0", git = "https://github.com/727-Ventures/openbrush-contracts", default-features = false, features = [
+    "psp22",
+] }
 
 [lib]
 name = "my_psp22"
@@ -20,17 +26,11 @@ path = "lib.rs"
 crate-type = [
     # Used for normal contract Wasm blobs.
     "cdylib",
-    "rlib"
+    "rlib",
 ]
 
 [features]
 default = ["std"]
-std = [
-
-    "ink/std",
-    "scale/std",
-    "scale-info/std",
-    "openbrush/std",
-]
+std = ["ink/std", "scale/std", "scale-info/std", "openbrush/std"]
 psp22 = ["openbrush/psp22"]
 ink-as-dependency = []
