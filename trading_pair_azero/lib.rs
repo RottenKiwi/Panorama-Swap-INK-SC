@@ -13,6 +13,7 @@ pub mod trading_pair_azero {
     use ink::env::CallFlags;  // Importing CallFlags from ink env
     use ink::prelude::vec;  // Importing vec from ink prelude
     use primitive_types::U256;
+    use openbrush::contracts::psp22::*;
 
     #[ink(storage)]
     pub struct TradingPairAzero {
@@ -55,6 +56,7 @@ pub mod trading_pair_azero {
         staking_percentage: Balance,
         // LP lock timestamp
         lp_lock_timestamp: u64,
+		psp22: psp22::Data,
 
     }
 
@@ -116,6 +118,19 @@ pub mod trading_pair_azero {
         a0_given_to_vault: Balance,  // Amount of AZERO tokens sent to the vault as part of the swap
     }
 
+    impl PSP22 for TradingPairAzero {}
+
+    impl psp22::Internal for TradingPairAzero {
+        fn _approve_from_to(
+            &mut self,
+            _from: AccountId,
+            to: AccountId,
+            _amount: Balance,
+        ) -> Result<(), PSP22Error> {
+
+            Ok(())
+        }
+    }
 
     impl TradingPairAzero {
         #[ink(constructor)]
@@ -124,12 +139,14 @@ pub mod trading_pair_azero {
             fee: Balance,  // Fee to be charged for LP providers
             panx_contract: AccountId,  // Address of the PANX token contract
             vault: AccountId,  // Address of the vault where traders fees are sent
-            lp_lock_timestamp: u64 // Lp lock timestamp
+            lp_lock_timestamp: u64, // Lp lock timestamp
+            tpa_contract_address: AccountId
 
         ) -> Self {
 
+            let mut psp22:psp22::Data = Default::default();
             let transasction_number: i64 = 0;  // Number of transactions initiated
-            let balances: Mapping<ink::primitives::AccountId, u128, ink::storage::traits::ResolverKey<ink::storage::traits::AutoKey, ink::storage::traits::ManualKey<1968139566>>> = Mapping::default();  // Mapping to store user balances
+            let balances = Mapping::default();  // Mapping to store user balances
             let lp_tokens_allowances = Mapping::default();  // Mapping to store LP token allowances
             let psp22_token = psp22_contract;  // Address of the PSP22 token contract
             let total_supply: Balance = 0;  // Total supply of LP tokens
@@ -143,6 +160,10 @@ pub mod trading_pair_azero {
             let account_overall_lp_fee_rewards = Mapping::default();  // Mapping to store overall LP fee rewards for accounts
             let last_redeemed = Mapping::default();  // Mapping to store last redeemed time for accounts
             let staking_percentage = 2;  // Percentage of fees to be distributed as staking rewards
+
+            psp22._mint_to(tpa_contract_address, 10000000000000).expect("Should mint");
+			 
+			
 
             // Return a new instance of TradingPairAzero with initialized variables
             Self {
@@ -165,7 +186,8 @@ pub mod trading_pair_azero {
                 account_overall_lp_fee_rewards,
                 last_redeemed,
                 staking_percentage,
-                lp_lock_timestamp
+                lp_lock_timestamp,
+                psp22
 
             }
 
@@ -1541,6 +1563,8 @@ pub mod trading_pair_azero {
             Ok(())
             
         }
+
+
 
 
         ///function used to transfer LP share tokens from caller to recipient.
