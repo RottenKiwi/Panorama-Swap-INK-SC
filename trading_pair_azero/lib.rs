@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-#[ink::contract]
+#[openbrush::contract]
 pub mod trading_pair_azero {
 
     use ink::env::CallFlags; // Importing CallFlags from ink env
@@ -119,15 +119,15 @@ pub mod trading_pair_azero {
         a0_given_to_vault: Balance, // Amount of AZERO tokens sent to the vault as part of the swap
     }
 
-    // impl PSP22 for TradingPairAzero {}
-
     impl PSP22 for TradingPairAzero {
+        #[ink(message)]
         fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
             self.lp_tokens_allowances
                 .get(&(owner, spender))
                 .unwrap_or(0)
         }
 
+        #[ink(message)]
         fn approve(&mut self, spender: AccountId, value: Balance) -> Result<(), PSP22Error> {
             let caller = self.get_caller_id();
 
@@ -137,6 +137,7 @@ pub mod trading_pair_azero {
             Ok(())
         }
 
+        #[ink(message)]
         fn transfer(
             &mut self,
             to: AccountId,
@@ -155,13 +156,63 @@ pub mod trading_pair_azero {
 
             let new_caller_lp_balance: Balance = caller_shares - value;
 
-            let new_recipient_lp_balance: Balance = recipient_shares - value;
+            let new_recipient_lp_balance: Balance = recipient_shares + value;
 
             self.balances.insert(caller, &(new_caller_lp_balance));
 
             self.balances.insert(to, &(new_recipient_lp_balance));
 
             Ok(())
+        }
+
+        #[ink(message)]
+        fn transfer_from(
+            &mut self,
+            from: AccountId,
+            to: AccountId,
+            value: Balance,
+            _data: Vec<u8>,
+        ) -> Result<(), PSP22Error> {
+            let caller = self.get_caller_id();
+
+            let allowance = self.allowance(from, caller);
+
+            if allowance < value {
+                return Err(PSP22Error::InsufficientAllowance)
+            }
+
+            let from_shares: Balance = self.balances.get(&from).unwrap_or(0);
+
+            let recipient_shares: Balance = self.balances.get(&to).unwrap_or(0);
+
+            if from_shares < value {
+                return Err(PSP22Error::InsufficientBalance)
+            }
+
+            let new_from_lp_balance: Balance = from_shares - value;
+
+            let new_recipient_lp_balance: Balance = recipient_shares + value;
+
+            self.balances.insert(from, &(new_from_lp_balance));
+
+            self.balances.insert(to, &(new_recipient_lp_balance));
+
+            let new_allowance = allowance - value;
+
+            self.lp_tokens_allowances
+                .insert((from, caller), &(new_allowance));
+
+            Ok(())
+        }
+
+        #[ink(message)]
+        fn balance_of(&self, owner: AccountId) -> Balance {
+            self.balances.get(&owner).unwrap_or(0)
+        }
+
+        #[ink(message)]
+        fn total_supply(&self) -> Balance {
+            self.total_supply
         }
     }
 
@@ -1476,137 +1527,6 @@ pub mod trading_pair_azero {
             Ok(())
         }
 
-        /// function used to transfer LP share tokens from caller to recipient.
-        #[ink(message)]
-        pub fn transfer_lp_tokens(
-            &mut self,
-            recipient: AccountId,
-            shares_to_transfer: Balance,
-        ) -> Result<(), TradingPairErrors> {
-            let caller = self.env().caller();
-
-            let caller_shares: Balance = self.balances.get(&caller).unwrap_or(0);
-
-            let recipient_shares: Balance = self.balances.get(&recipient).unwrap_or(0);
-
-            if caller_shares < shares_to_transfer {
-                return Err(TradingPairErrors::CallerInsufficientLPBalance)
-            }
-
-            let new_caller_lp_balance: Balance;
-
-            // calculating caller total LP share tokens amount after transfer
-            match caller_shares.checked_sub(shares_to_transfer) {
-                Some(result) => {
-                    new_caller_lp_balance = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            let new_recipient_lp_balance: Balance;
-
-            // calculating caller total LP share tokens amount after transfer
-            match recipient_shares.checked_add(shares_to_transfer) {
-                Some(result) => {
-                    new_recipient_lp_balance = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            self.balances.insert(caller, &(new_caller_lp_balance));
-
-            self.balances.insert(recipient, &(new_recipient_lp_balance));
-
-            Ok(())
-        }
-
-        /// function used to approve the amount of LP token shares for the spender to spend from owner.
-        #[ink(message)]
-        pub fn approve_lp_tokens(
-            &mut self,
-            spender: AccountId,
-            shares_to_approve: Balance,
-        ) -> Result<(), TradingPairErrors> {
-            let caller = self.env().caller();
-
-            let caller_shares: Balance = self.balances.get(&caller).unwrap_or(0);
-
-            if caller_shares < shares_to_approve {
-                return Err(TradingPairErrors::CallerInsufficientLPBalance)
-            }
-
-            if shares_to_approve >= u128::MAX {
-                return Err(TradingPairErrors::Overflow)
-            }
-
-            self.lp_tokens_allowances
-                .insert((caller, spender), &(shares_to_approve));
-
-            Ok(())
-        }
-
-        // function to transfer LP share tokens FROM owner TO receipent
-        #[ink(message)]
-        pub fn transfer_lp_tokens_from_to(
-            &mut self,
-            owner: AccountId,
-            to: AccountId,
-            shares_to_transfer: Balance,
-        ) -> Result<Balance, TradingPairErrors> {
-            let owner_shares: Balance = self.balances.get(&owner).unwrap_or(0);
-
-            let to_shares: Balance = self.balances.get(&to).unwrap_or(0);
-
-            let allowance = self.get_lp_tokens_allowance(owner, to);
-
-            if allowance < shares_to_transfer {
-                return Err(TradingPairErrors::NotEnoughOwnerLPAllowance)
-            }
-
-            if owner_shares < shares_to_transfer {
-                return Err(TradingPairErrors::CallerInsufficientLPBalance)
-            }
-
-            let new_owner_lp_balance: Balance;
-
-            // calculating caller total LP share tokens amount after transfer
-            match owner_shares.checked_sub(shares_to_transfer) {
-                Some(result) => {
-                    new_owner_lp_balance = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            let new_to_lp_balance: Balance;
-
-            // calculating caller total LP share tokens amount after transfer
-            match to_shares.checked_add(shares_to_transfer) {
-                Some(result) => {
-                    new_to_lp_balance = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            let new_allowance: Balance;
-
-            // calculating spender new allowance amount
-            match allowance.checked_sub(shares_to_transfer) {
-                Some(result) => {
-                    new_allowance = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            self.balances.insert(owner, &(new_owner_lp_balance));
-
-            self.lp_tokens_allowances
-                .insert((owner, to), &(new_allowance));
-
-            self.balances.insert(to, &(new_to_lp_balance));
-
-            Ok(allowance)
-        }
-
         /// function to add caller to the LP incentive program
         fn update_incentive_program(&mut self, caller: AccountId) -> Result<(), TradingPairErrors> {
             let account_shares_balance: Balance = self.balances.get(&caller).unwrap_or(0);
@@ -1767,14 +1687,6 @@ pub mod trading_pair_azero {
             Ok(())
         }
 
-        // function to get the allowance of spender from the owner
-        #[ink(message)]
-        pub fn get_lp_tokens_allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
-            self.lp_tokens_allowances
-                .get(&(owner, spender))
-                .unwrap_or(0)
-        }
-
         /// function to get the amount of tokens to give to caller each day.
         #[ink(message)]
         pub fn get_amount_to_give_each_day_to_caller(&mut self, caller: AccountId) -> Balance {
@@ -1858,8 +1770,7 @@ pub mod trading_pair_azero {
         /// function to get shares of specific account
         #[ink(message)]
         pub fn get_lp_token_of(&self, account: AccountId) -> Balance {
-            let account_balance: Balance = self.balances.get(&account).unwrap_or(0);
-            account_balance
+            self.balances.get(&account).unwrap_or(0)
         }
 
         // function to get contract PSP22 reserve (self)
