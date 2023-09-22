@@ -10,7 +10,7 @@ pub mod trading_pair_azero {
     use ink::storage::Mapping; // Importing Mapping from ink storage
     use openbrush::{
         contracts::{
-            psp22::*,
+            psp22::extensions::burnable::*,
             traits::psp22::PSP22Ref,
         },
         traits::Storage,
@@ -244,7 +244,7 @@ pub mod trading_pair_azero {
             let tpa_contract_address: AccountId = Self::env().account_id();
 
             psp22
-                ._mint_to(tpa_contract_address, 10000000000000000000000)
+                ._mint_to(tpa_contract_address, 0)
                 .expect("Should mint");
 
             // Return a new instance of TradingPairAzero with initialized variables
@@ -388,6 +388,8 @@ pub mod trading_pair_azero {
             // Increase the LP balance of `caller` (mint) by inserting `new_caller_shares` into `self.balances`
             self.balances.insert(caller, &(new_caller_shares));
 
+            self._mint_to(caller, shares);
+
             // Add `shares` to the total supply of LP tokens (mint)
             self.total_supply += shares;
 
@@ -471,6 +473,7 @@ pub mod trading_pair_azero {
 
             // reducing caller total LP share tokens balance
             self.balances.insert(caller, &(new_caller_lp_shares));
+            self._burn_from(caller, shares);
 
             // reducing overall LP token supply
             self.total_supply -= shares;
