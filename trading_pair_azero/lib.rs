@@ -241,11 +241,6 @@ pub mod trading_pair_azero {
             let account_overall_lp_fee_rewards = Mapping::default(); // Mapping to store overall LP fee rewards for accounts
             let last_redeemed = Mapping::default(); // Mapping to store last redeemed time for accounts
             let staking_percentage = 2; // Percentage of fees to be distributed as staking rewards
-            let tpa_contract_address: AccountId = Self::env().account_id();
-
-            psp22
-                ._mint_to(tpa_contract_address, 0)
-                .expect("Should mint");
 
             // Return a new instance of TradingPairAzero with initialized variables
             Self {
@@ -277,7 +272,7 @@ pub mod trading_pair_azero {
         pub fn provide_to_pool(
             &mut self,
             psp22_deposit_amount: Balance, // Amount of PSP22 tokens to be deposited
-            expected_lp_tokens: Balance,   // Expected amount of LP tokens to be received
+            expected_lp_tokens: u128,      // Expected amount of LP tokens to be received
             slippage: Balance,             // Slippage tolerance percentage
         ) -> Result<(), TradingPairErrors> {
             // Function returns a Result with an error type TradingPairErrors or a unit type ()
@@ -310,8 +305,8 @@ pub mod trading_pair_azero {
             let mut shares: Balance = 0; // Initialize shares variable to 0
 
             if self.total_supply == 0 {
-                // If total LP token supply is 0, set shares to a fixed value of 1000 * 10^12
-                shares = 1000u128 * 10u128.pow(12);
+                shares = (self.env().transferred_value() / 10u128.pow(12))
+                    * (psp22_deposit_amount / 10u128.pow(12));
             }
 
             if self.total_supply > 0 {
@@ -812,14 +807,15 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_expected_lp_token_amount(
             &self,
-            a0_deposit_amount: Balance,
-        ) -> Result<Balance, TradingPairErrors> {
-            let mut shares: Balance = 0;
+            a0_deposit_amount: u128,
+            psp22_deposit_amount: u128,
+        ) -> Result<u128, TradingPairErrors> {
+            let mut shares: u128 = 0;
 
             // if its the trading pair first deposit
             if self.total_supply == 0 {
                 // calculating the amount of shares to give to the provider if its the first LP deposit overall
-                shares = 1000u128 * 10u128.pow(12);
+                shares = a0_deposit_amount * psp22_deposit_amount;
             }
 
             // if its not the first LP deposit

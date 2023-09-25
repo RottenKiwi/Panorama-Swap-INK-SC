@@ -8,15 +8,25 @@ overflow-checks = false
 [dependencies]
 ink = { version = "~4.0.0", default-features = false }
 
-scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
-scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
-primitive-types = { version = "0.12.0", default-features = false, features = ["scale-info"] }
-openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag="3.0.0", default-features= false, features = ["psp22"] }
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
+    "derive",
+] }
+scale-info = { version = "2.3", default-features = false, features = [
+    "derive",
+], optional = true }
+primitive-types = { version = "0.12.0", default-features = false, features = [
+    "scale-info",
+] }
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "3.0.0", default-features = false, features = [
+    "psp22",
+] }
 
 
 [dev-dependencies]
 ink_e2e = "4.0.0"
-my_psp22 = { path = "../my_psp22",version="1.0.0",default-features = false, features = ["ink-as-dependency"] }
+my_psp22 = { path = "../my_psp22", version = "1.0.0", default-features = false, features = [
+    "ink-as-dependency",
+] }
 
 [lib]
 name = "trading_pair_azero"
@@ -31,13 +41,7 @@ overflow-checks = false
 
 [features]
 default = ["std"]
-std = [
-
-    "ink/std",
-    "scale/std",
-    "scale-info/std",
-    "openbrush/std",
-]
+std = ["ink/std", "scale/std", "scale-info/std", "openbrush/std"]
 psp22 = ["openbrush/psp22"]
 ink-as-dependency = []
 e2e-tests = []
