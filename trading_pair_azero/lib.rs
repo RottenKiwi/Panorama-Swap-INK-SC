@@ -225,7 +225,7 @@ pub mod trading_pair_azero {
             vault: AccountId,          // Address of the vault where traders fees are sent
             lp_lock_timestamp: u64,    // Lp lock timestamp
         ) -> Self {
-            let mut psp22: psp22::Data = Default::default();
+            let psp22: psp22::Data = Default::default();
             let transasction_number: i64 = 0; // Number of transactions initiated
             let balances = Mapping::default(); // Mapping to store user balances
             let lp_tokens_allowances = Mapping::default(); // Mapping to store LP token allowances
@@ -272,7 +272,7 @@ pub mod trading_pair_azero {
         pub fn provide_to_pool(
             &mut self,
             psp22_deposit_amount: Balance, // Amount of PSP22 tokens to be deposited
-            expected_lp_tokens: u128,      // Expected amount of LP tokens to be received
+            expected_lp_tokens: Balance,   // Expected amount of LP tokens to be received
             slippage: Balance,             // Slippage tolerance percentage
         ) -> Result<(), TradingPairErrors> {
             // Function returns a Result with an error type TradingPairErrors or a unit type ()
@@ -305,13 +305,17 @@ pub mod trading_pair_azero {
             let mut shares: Balance = 0; // Initialize shares variable to 0
 
             if self.total_supply == 0 {
-                shares = (self.env().transferred_value() / 10u128.pow(12))
-                    * (psp22_deposit_amount / 10u128.pow(12));
+                shares = self.env().transferred_value() * psp22_deposit_amount;
+
+                match shares.checked_div(10u128.pow(12)) {
+                    Some(result) => {
+                        shares = result;
+                    }
+                    None => return Err(TradingPairErrors::Overflow),
+                };
             }
 
             if self.total_supply > 0 {
-                // If total LP token supply is greater than 0, calculate shares based on the transaction value and reserve balance
-
                 let reserve_before_transaction =
                     self.get_a0_balance() - self.env().transferred_value();
 
@@ -404,6 +408,27 @@ pub mod trading_pair_azero {
             // Return a successful result
 
             Ok(())
+        }
+
+        /// function to provide liquidity to a PSP22/A0 trading pair contract.
+        #[ink(message, payable)]
+        pub fn provide_to_pool1(
+            &mut self,
+            psp22_deposit_amount: Balance, // Amount of PSP22 tokens to be deposited
+            expected_lp_tokens: Balance,   // Expected amount of LP tokens to be received
+            slippage: Balance,             // Slippage tolerance percentage
+        ) -> Balance {
+            // Function returns a Result with an error type TradingPairErrors or a unit type ()
+
+            let mut shares: Balance = 0; // Initialize shares variable to 0
+
+            if self.total_supply == 0 {
+                shares = self.env().transferred_value() * psp22_deposit_amount;
+            }
+
+            let percentage_diff = self.check_difference(expected_lp_tokens, shares).unwrap(); // Calculate the percentage difference between expected LP tokens and calculated shares
+
+            percentage_diff
         }
 
         /// function to withdraw specific amount of LP share tokens and receive AZERO coins and PSP22 tokens.
@@ -807,15 +832,21 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_expected_lp_token_amount(
             &self,
-            a0_deposit_amount: u128,
-            psp22_deposit_amount: u128,
-        ) -> Result<u128, TradingPairErrors> {
-            let mut shares: u128 = 0;
+            a0_deposit_amount: Balance,
+            psp22_deposit_amount: Balance,
+        ) -> Result<Balance, TradingPairErrors> {
+            let mut shares: Balance = 0;
 
             // if its the trading pair first deposit
             if self.total_supply == 0 {
                 // calculating the amount of shares to give to the provider if its the first LP deposit overall
                 shares = a0_deposit_amount * psp22_deposit_amount;
+                match shares.checked_div(10u128.pow(12)) {
+                    Some(result) => {
+                        shares = result;
+                    }
+                    None => return Err(TradingPairErrors::Overflow),
+                };
             }
 
             // if its not the first LP deposit
@@ -1800,18 +1831,27 @@ pub mod trading_pair_azero {
             value1: Balance,
             value2: Balance,
         ) -> Result<Balance, TradingPairErrors> {
-            let absolute_difference = value1.abs_diff(value2);
+            let mut percentage_difference: Balance = 0;
 
-            let absolute_difference_nominated = absolute_difference * (10u128.pow(12));
+            if value1 > value2 {
+                percentage_difference = (value1 - value2) * (10u128.pow(12));
+                match (percentage_difference / value2).checked_mul(100u128) {
+                    Some(result) => {
+                        percentage_difference = result;
+                    }
+                    None => return Err(TradingPairErrors::Overflow),
+                };
+            }
 
-            let percentage_difference: Balance;
-
-            match 100u128.checked_mul(absolute_difference_nominated / ((value1 + value2) / 2)) {
-                Some(result) => {
-                    percentage_difference = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
+            if value2 > value1 {
+                percentage_difference = (value2 - value1) * (10u128.pow(12));
+                match (percentage_difference / value1).checked_mul(100u128) {
+                    Some(result) => {
+                        percentage_difference = result;
+                    }
+                    None => return Err(TradingPairErrors::Overflow),
+                };
+            }
 
             Ok(percentage_difference)
         }
