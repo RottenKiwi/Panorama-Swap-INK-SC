@@ -410,27 +410,6 @@ pub mod trading_pair_azero {
             Ok(())
         }
 
-        /// function to provide liquidity to a PSP22/A0 trading pair contract.
-        #[ink(message, payable)]
-        pub fn provide_to_pool1(
-            &mut self,
-            psp22_deposit_amount: Balance, // Amount of PSP22 tokens to be deposited
-            expected_lp_tokens: Balance,   // Expected amount of LP tokens to be received
-            slippage: Balance,             // Slippage tolerance percentage
-        ) -> Balance {
-            // Function returns a Result with an error type TradingPairErrors or a unit type ()
-
-            let mut shares: Balance = 0; // Initialize shares variable to 0
-
-            if self.total_supply == 0 {
-                shares = self.env().transferred_value() * psp22_deposit_amount;
-            }
-
-            let percentage_diff = self.check_difference(expected_lp_tokens, shares).unwrap(); // Calculate the percentage difference between expected LP tokens and calculated shares
-
-            percentage_diff
-        }
-
         /// function to withdraw specific amount of LP share tokens and receive AZERO coins and PSP22 tokens.
         #[ink(message, payable)]
         pub fn withdraw_specific_amount(
