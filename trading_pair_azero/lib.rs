@@ -302,12 +302,13 @@ pub mod trading_pair_azero {
                 return Err(TradingPairErrors::NotEnoughAllowance)
             }
 
-            let mut shares: Balance = 0; // Initialize shares variable to 0
+            let mut shares: U256 = U256::from(0); // Initialize shares variable to 0
 
             if self.total_supply == 0 {
-                shares = self.env().transferred_value() * psp22_deposit_amount;
+                shares =
+                    U256::from(self.env().transferred_value()) * U256::from(psp22_deposit_amount);
 
-                match shares.checked_div(10u128.pow(12)) {
+                match shares.checked_div(U256::from(10u128.pow(12))) {
                     Some(result) => {
                         shares = result;
                     }
@@ -319,25 +320,23 @@ pub mod trading_pair_azero {
                 let reserve_before_transaction =
                     self.get_a0_balance() - self.env().transferred_value();
 
-                match (self.env().transferred_value() * self.total_supply)
-                    .checked_div(reserve_before_transaction)
-                {
-                    // Calculate shares using transferred value and total supply
-                    Some(result) => {
-                        shares = result;
-                    }
-                    None => {
-                        return Err(TradingPairErrors::Overflow) // If overflow occurs during calculation, return an error
-                    }
-                };
+                let coin_product = (self.env().transferred_value() * self.total_supply)
+                    / reserve_before_transaction;
+
+                let psp22_product =
+                    (psp22_deposit_amount * self.total_supply) / self.get_psp22_balance();
+
+                shares = U256::from(self._min(coin_product, psp22_product));
             }
 
-            if shares <= 0 {
+            if shares <= U256::from(0) {
                 // If shares is less than or equal to 0, return an error difference
                 return Err(TradingPairErrors::ZeroSharesGiven)
             }
 
-            let percentage_diff = self.check_difference(expected_lp_tokens, shares).unwrap(); // Calculate the percentage difference between expected LP tokens and calculated shares
+            let percentage_diff = self
+                .check_difference(expected_lp_tokens, shares.as_u128())
+                .unwrap(); // Calculate the percentage difference between expected LP tokens and calculated shares
 
             // Validate slippage tolerance
             if percentage_diff > slippage.try_into().unwrap() {
@@ -350,7 +349,7 @@ pub mod trading_pair_azero {
             let new_caller_shares: Balance; // Initialize new caller shares variable
 
             // Calculate the new caller shares by adding current shares and calculated shares
-            match current_shares.checked_add(shares) {
+            match current_shares.checked_add(shares.as_u128()) {
                 Some(result) => {
                     new_caller_shares = result;
                 }
@@ -387,10 +386,10 @@ pub mod trading_pair_azero {
             // Increase the LP balance of `caller` (mint) by inserting `new_caller_shares` into `self.balances`
             self.balances.insert(caller, &(new_caller_shares));
 
-            self._mint_to(caller, shares);
+            self._mint_to(caller, shares.as_u128());
 
             // Add `shares` to the total supply of LP tokens (mint)
-            self.total_supply += shares;
+            self.total_supply += shares.as_u128();
 
             // Update the incentive program for `caller`, and if it fails, return an error
             if self.update_incentive_program(caller).is_err() {
@@ -402,7 +401,7 @@ pub mod trading_pair_azero {
                 provider: caller,
                 a0_deposited_amount: self.env().transferred_value(),
                 psp22_deposited_amount: psp22_deposit_amount,
-                shares_given: shares,
+                shares_given: shares.as_u128(),
             });
 
             // Return a successful result
@@ -1846,6 +1845,15 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_lp_lock_timestamp(&self) -> u64 {
             self.lp_lock_timestamp
+        }
+
+        /// function to get LP lock timestamp
+        fn _min(&self, value1: Balance, value2: Balance) -> Balance {
+            if value1 < value2 {
+                return value1
+            } else {
+                return value2
+            }
         }
     }
 
