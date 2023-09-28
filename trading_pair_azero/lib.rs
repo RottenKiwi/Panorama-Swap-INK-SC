@@ -84,6 +84,7 @@ pub mod trading_pair_azero {
         UpdateIncentiveProgramError, // Error code for update incentive program error
         RemoveLpIncentiveProgramError, // Error code for remove LP incentive program error
         LpStillLocked,             // Error code for remove LP before the lock date
+        PriceImpact,
     }
 
     #[ink(event)]
@@ -272,6 +273,7 @@ pub mod trading_pair_azero {
         pub fn provide_to_pool(
             &mut self,
             psp22_deposit_amount: Balance, // Amount of PSP22 tokens to be deposited
+            a0_deposit_amount: Balance,    // Amount of AZERO coins to be deposited
             expected_lp_tokens: Balance,   // Expected amount of LP tokens to be received
             slippage: Balance,             // Slippage tolerance percentage
         ) -> Result<(), TradingPairErrors> {
@@ -327,6 +329,18 @@ pub mod trading_pair_azero {
                     (psp22_deposit_amount * self.total_supply) / self.get_psp22_balance();
 
                 shares = U256::from(self._min(coin_product, psp22_product));
+
+                let psp22_amount_needed_to_deposit =
+                    self.get_psp22_amount_for_lp(a0_deposit_amount, reserve_before_transaction);
+
+                let a0_amount_needed_to_deposit =
+                    self.get_a0_amount_for_lp(psp22_deposit_amount, reserve_before_transaction);
+
+                if a0_amount_needed_to_deposit != a0_deposit_amount
+                    && psp22_amount_needed_to_deposit != psp22_deposit_amount
+                {
+                    return Err(TradingPairErrors::PriceImpact)
+                }
             }
 
             if shares <= U256::from(0) {
@@ -1832,6 +1846,33 @@ pub mod trading_pair_azero {
             }
 
             Ok(percentage_difference)
+        }
+
+        #[ink(message)]
+        pub fn get_psp22_amount_for_lp(
+            &self,
+            a0_deposit_amount: Balance,
+            a0_contract_balance: Balance,
+        ) -> Balance {
+            let psp22_amount_to_deposit = ((self.get_psp22_balance() * (10u128.pow(12)))
+                / a0_contract_balance
+                * a0_deposit_amount)
+                / (10u128.pow(12));
+            psp22_amount_to_deposit
+        }
+
+        #[ink(message)]
+        pub fn get_a0_amount_for_lp(
+            &self,
+            psp22_deposit_amount: Balance,
+            a0_contract_balance: Balance,
+        ) -> Balance {
+            let a0_amount_to_deposit = ((a0_contract_balance * (10u128.pow(12)))
+                / self.get_psp22_balance()
+                * psp22_deposit_amount)
+                / (10u128.pow(12));
+
+            a0_amount_to_deposit
         }
 
         /// function to get current timpstamp in seconds
