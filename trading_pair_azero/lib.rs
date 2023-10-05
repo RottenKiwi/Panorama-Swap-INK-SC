@@ -84,7 +84,6 @@ pub mod trading_pair_azero {
         UpdateIncentiveProgramError, // Error code for update incentive program error
         RemoveLpIncentiveProgramError, // Error code for remove LP incentive program error
         LpStillLocked,             // Error code for remove LP before the lock date
-        PriceImpact,
     }
 
     #[ink(event)]
@@ -336,10 +335,17 @@ pub mod trading_pair_azero {
                 let a0_amount_needed_to_deposit =
                     self.get_a0_amount_for_lp(psp22_deposit_amount, reserve_before_transaction);
 
-                if a0_amount_needed_to_deposit != a0_deposit_amount
-                    && psp22_amount_needed_to_deposit != psp22_deposit_amount
+                let psp22_deposit_percentage_diff = self
+                    .check_difference(psp22_deposit_amount, psp22_amount_needed_to_deposit)
+                    .unwrap();
+
+                let a0_deposit_percentage_diff = self
+                    .check_difference(a0_amount_needed_to_deposit, a0_deposit_amount)
+                    .unwrap();
+
+                if psp22_deposit_percentage_diff > slippage && a0_deposit_percentage_diff > slippage
                 {
-                    return Err(TradingPairErrors::PriceImpact)
+                    return Err(TradingPairErrors::SlippageTolerance)
                 }
             }
 
