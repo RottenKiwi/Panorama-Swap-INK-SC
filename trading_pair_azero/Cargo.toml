@@ -6,18 +6,18 @@ edition = "2021"
 overflow-checks = false
 
 [dependencies]
-ink = { version = "~4.0.0", default-features = false }
+ink = { version = "4.2.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
     "derive",
 ] }
-scale-info = { version = "2.3", default-features = false, features = [
+scale-info = { version = "2.6.0", default-features = false, features = [
     "derive",
 ], optional = true }
 primitive-types = { version = "0.12.0", default-features = false, features = [
     "scale-info",
 ] }
-openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "3.0.0", default-features = false, features = [
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "4.0.0", default-features = false, features = [
     "psp22",
 ] }
 
