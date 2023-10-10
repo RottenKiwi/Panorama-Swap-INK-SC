@@ -84,7 +84,6 @@ pub mod trading_pair_azero {
         UpdateIncentiveProgramError, // Error code for update incentive program error
         RemoveLpIncentiveProgramError, // Error code for remove LP incentive program error
         LpStillLocked,             // Error code for remove LP before the lock date
-        PriceImpact,
     }
 
     #[ink(event)]
@@ -336,10 +335,17 @@ pub mod trading_pair_azero {
                 let a0_amount_needed_to_deposit =
                     self.get_a0_amount_for_lp(psp22_deposit_amount, reserve_before_transaction);
 
-                if a0_amount_needed_to_deposit != a0_deposit_amount
-                    && psp22_amount_needed_to_deposit != psp22_deposit_amount
+                let psp22_deposit_percentage_diff = self
+                    .check_difference(psp22_deposit_amount, psp22_amount_needed_to_deposit)
+                    .unwrap();
+
+                let a0_deposit_percentage_diff = self
+                    .check_difference(a0_amount_needed_to_deposit, a0_deposit_amount)
+                    .unwrap();
+
+                if psp22_deposit_percentage_diff > slippage && a0_deposit_percentage_diff > slippage
                 {
-                    return Err(TradingPairErrors::PriceImpact)
+                    return Err(TradingPairErrors::SlippageTolerance)
                 }
             }
 
@@ -876,22 +882,14 @@ pub mod trading_pair_azero {
             // fetching caller current PSP22 balance
             let caller_current_balance: Balance = PSP22Ref::balance_of(&self.panx_contract, caller);
 
-            let actual_fee: Balance;
-
-            // calculating the actual LP fee
-            match self.fee.checked_div(10u128.pow(12)) {
-                Some(result) => {
-                    actual_fee = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            let mut amount_in_with_lp_fees: Balance;
+            let mut psp22_amount_in_with_lp_fees: U256 = U256::from(0);
 
             // reducting the LP fee from the PSP22 amount in
-            match psp22_amount_in.checked_mul(100u128 - actual_fee) {
+            match U256::from(psp22_amount_in)
+                .checked_mul(U256::from(100u128 * 10u128.pow(12)) - (self.fee))
+            {
                 Some(result) => {
-                    amount_in_with_lp_fees = result;
+                    psp22_amount_in_with_lp_fees = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
@@ -902,9 +900,11 @@ pub mod trading_pair_azero {
             if caller_current_balance >= tokens_to_validate {
                 if self.fee <= 1400000000000u128 {
                     // reducting HALF of the LP fee from PSP22 amount in, if the caller has more than 3500 PANX and the LP fee is less than 1.4%
-                    match psp22_amount_in.checked_mul(100u128 - (actual_fee / 2u128)) {
+                    match U256::from(psp22_amount_in)
+                        .checked_mul(U256::from(100u128 * 10u128.pow(12)) - (self.fee / 2u128))
+                    {
                         Some(result) => {
-                            amount_in_with_lp_fees = result;
+                            psp22_amount_in_with_lp_fees = result;
                         }
                         None => return Err(TradingPairErrors::Overflow),
                     };
@@ -912,23 +912,45 @@ pub mod trading_pair_azero {
 
                 if self.fee > 1400000000000u128 {
                     // reducting (LP fee - 1) of the LP fee from PSP22 amount in, if the caller has more than 3500 PANX and the LP fee is more than 1.4%
-                    match psp22_amount_in.checked_mul(100u128 - (actual_fee - 1u128)) {
+                    match U256::from(psp22_amount_in).checked_mul(
+                        U256::from(100u128 * 10u128.pow(12))
+                            - (self.fee - (1u128 * 10u128.pow(12))),
+                    ) {
                         Some(result) => {
-                            amount_in_with_lp_fees = result;
+                            psp22_amount_in_with_lp_fees = result;
                         }
                         None => return Err(TradingPairErrors::Overflow),
                     };
                 }
             }
 
+            psp22_amount_in_with_lp_fees = psp22_amount_in_with_lp_fees / 10u128.pow(12);
+
+            let mut numerator: U256 = U256::from(0);
+            let mut denominator: U256 = U256::from(0);
             let a0_amount_out: Balance;
 
-            // calculating the final A0 amount to transfer to the caller.
-            match (amount_in_with_lp_fees * self.get_a0_balance())
-                .checked_div((self.get_psp22_balance() * 100u128) + amount_in_with_lp_fees)
+            match U256::from(psp22_amount_in_with_lp_fees)
+                .checked_mul(U256::from(self.get_a0_balance()))
             {
                 Some(result) => {
-                    a0_amount_out = result;
+                    numerator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match (U256::from(self.get_psp22_balance()) * U256::from(100))
+                .checked_add(U256::from(psp22_amount_in_with_lp_fees))
+            {
+                Some(result) => {
+                    denominator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match numerator.checked_div(denominator) {
+                Some(result) => {
+                    a0_amount_out = result.as_u128();
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
@@ -956,22 +978,14 @@ pub mod trading_pair_azero {
 
             let caller_current_balance: Balance = PSP22Ref::balance_of(&self.panx_contract, caller);
 
-            let actual_fee: Balance;
-
-            // calculating the actual LP fee
-            match self.fee.checked_div(10u128.pow(12)) {
-                Some(result) => {
-                    actual_fee = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            let mut amount_in_with_lp_fees: Balance;
+            let mut a0_amount_in_with_lp_fees: U256 = U256::from(0);
 
             // reducting the LP fee from the A0 amount in
-            match a0_amout_in.checked_mul(100u128 - actual_fee) {
+            match U256::from(a0_amout_in)
+                .checked_mul(U256::from(100u128 * 10u128.pow(12)) - self.fee)
+            {
                 Some(result) => {
-                    amount_in_with_lp_fees = result;
+                    a0_amount_in_with_lp_fees = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
@@ -982,9 +996,11 @@ pub mod trading_pair_azero {
             if caller_current_balance >= tokens_to_validate {
                 if self.fee <= 1400000000000 {
                     // reducting HALF of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is less than 1.4%
-                    match a0_amout_in.checked_mul(100u128 - (actual_fee / 2u128)) {
+                    match U256::from(a0_amout_in)
+                        .checked_mul(U256::from(100u128 * 10u128.pow(12)) - (self.fee / 2u128))
+                    {
                         Some(result) => {
-                            amount_in_with_lp_fees = result;
+                            a0_amount_in_with_lp_fees = result;
                         }
                         None => return Err(TradingPairErrors::Overflow),
                     };
@@ -992,56 +1008,71 @@ pub mod trading_pair_azero {
 
                 if self.fee > 1400000000000 {
                     // reducting (LP fee - 1) of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is more than 1.4%
-                    match a0_amout_in.checked_mul(100u128 - (actual_fee - 1u128)) {
+                    match U256::from(a0_amout_in).checked_mul(
+                        U256::from(100u128 * 10u128.pow(12))
+                            - (self.fee - (1u128 * 10u128.pow(12))),
+                    ) {
                         Some(result) => {
-                            amount_in_with_lp_fees = result;
+                            a0_amount_in_with_lp_fees = result;
                         }
                         None => return Err(TradingPairErrors::Overflow),
                     };
                 }
             }
 
-            let amount_out: Balance;
+            a0_amount_in_with_lp_fees = a0_amount_in_with_lp_fees / 10u128.pow(12);
 
-            // calculating the final PSP22 amount to transfer to the caller.
-            match (amount_in_with_lp_fees * self.get_psp22_balance())
-                .checked_div((a0_reserve_before * 100u128) + amount_in_with_lp_fees)
+            let mut numerator: U256 = U256::from(0);
+            let mut denominator: U256 = U256::from(0);
+
+            let a0_amount_out: Balance;
+
+            match U256::from(a0_amount_in_with_lp_fees)
+                .checked_mul(U256::from(self.get_psp22_balance()))
             {
                 Some(result) => {
-                    amount_out = result;
+                    numerator = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
 
-            Ok(amount_out)
+            match (U256::from(a0_reserve_before) * U256::from(100))
+                .checked_add(U256::from(a0_amount_in_with_lp_fees))
+            {
+                Some(result) => {
+                    denominator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match numerator.checked_div(denominator) {
+                Some(result) => {
+                    a0_amount_out = result.as_u128();
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            Ok(a0_amount_out)
         }
 
         /// function to get the amount of PSP22 the caller will get for given A0 amount (front-end use)
         #[ink(message, payable)]
         pub fn get_est_price_a0_to_psp22(
             &self,
-            a0_amout_in: Balance,
+            a0_amount_in: Balance,
         ) -> Result<Balance, TradingPairErrors> {
             let caller = self.env().caller();
 
             let caller_current_balance: Balance = PSP22Ref::balance_of(&self.panx_contract, caller);
 
-            let actual_fee: Balance;
-
-            // calculating the actual LP fee
-            match self.fee.checked_div(10u128.pow(12)) {
-                Some(result) => {
-                    actual_fee = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
-            let mut amount_in_with_lp_fees: Balance;
+            let mut a0_amount_in_with_lp_fees: U256 = U256::from(0);
 
             // reducting the LP fee from the A0 amount in
-            match a0_amout_in.checked_mul(100u128 - actual_fee) {
+            match U256::from(a0_amount_in)
+                .checked_mul(U256::from(100u128 * 10u128.pow(12)) - self.fee)
+            {
                 Some(result) => {
-                    amount_in_with_lp_fees = result;
+                    a0_amount_in_with_lp_fees = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
@@ -1052,9 +1083,11 @@ pub mod trading_pair_azero {
             if caller_current_balance >= tokens_to_validate {
                 if self.fee <= 1400000000000 {
                     // reducting HALF of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is less than 1.4%
-                    match a0_amout_in.checked_mul(100u128 - (actual_fee / 2u128)) {
+                    match U256::from(a0_amount_in)
+                        .checked_mul(U256::from(100u128 * 10u128.pow(12)) - (self.fee / 2u128))
+                    {
                         Some(result) => {
-                            amount_in_with_lp_fees = result;
+                            a0_amount_in_with_lp_fees = result;
                         }
                         None => return Err(TradingPairErrors::Overflow),
                     };
@@ -1062,28 +1095,51 @@ pub mod trading_pair_azero {
 
                 if self.fee > 1400000000000 {
                     // reducting (LP fee - 1) of the LP fee from the A0 amount in, if the caller has more than 3500 PANX and the LP fee is more than 1.4%
-                    match a0_amout_in.checked_mul(100u128 - (actual_fee - 1u128)) {
+                    match U256::from(a0_amount_in).checked_mul(
+                        U256::from(100u128 * 10u128.pow(12))
+                            - (self.fee - (1u128 * 10u128.pow(12))),
+                    ) {
                         Some(result) => {
-                            amount_in_with_lp_fees = result;
+                            a0_amount_in_with_lp_fees = result;
                         }
                         None => return Err(TradingPairErrors::Overflow),
                     };
                 }
             }
 
-            let amount_out: Balance;
+            a0_amount_in_with_lp_fees = a0_amount_in_with_lp_fees / 10u128.pow(12);
 
-            // calculating the final PSP22 amount to transfer to the caller
-            match (amount_in_with_lp_fees * self.get_psp22_balance())
-                .checked_div((self.get_a0_balance() * 100u128) + amount_in_with_lp_fees)
+            let mut numerator: U256 = U256::from(0);
+            let mut denominator: U256 = U256::from(0);
+
+            let a0_amount_out: Balance;
+
+            match U256::from(a0_amount_in_with_lp_fees)
+                .checked_mul(U256::from(self.get_psp22_balance()))
             {
                 Some(result) => {
-                    amount_out = result;
+                    numerator = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
 
-            Ok(amount_out)
+            match (U256::from(self.get_a0_balance()) * U256::from(100))
+                .checked_add(U256::from(a0_amount_in_with_lp_fees))
+            {
+                Some(result) => {
+                    denominator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match numerator.checked_div(denominator) {
+                Some(result) => {
+                    a0_amount_out = result.as_u128();
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            Ok(a0_amount_out)
         }
 
         /// function to get the estimated price impact for given psp22 token amount
@@ -1092,42 +1148,53 @@ pub mod trading_pair_azero {
             &self,
             psp22_amount_in: Balance,
         ) -> Result<Balance, TradingPairErrors> {
-            let actual_fee: Balance;
-
-            // calculating the actual LP fee
-            match self.fee.checked_div(10u128.pow(12)) {
-                Some(result) => {
-                    actual_fee = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
             // fetching the amount of A0 the caller WOULD get if he would swap
             let current_amount_out = self.get_est_price_psp22_to_a0(psp22_amount_in).unwrap();
 
-            let amount_in_with_fees: Balance;
+            let mut psp22_amount_in_with_lp_fees: U256 = U256::from(0);
 
             // reducting the LP fee from the PSP22 amount in
-            match psp22_amount_in.checked_mul(100u128 - actual_fee) {
+            match U256::from(psp22_amount_in)
+                .checked_mul(U256::from(100u128 * 10u128.pow(12)) - (self.fee))
+            {
                 Some(result) => {
-                    amount_in_with_fees = result;
+                    psp22_amount_in_with_lp_fees = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
 
-            let future_ao_amount_out: Balance;
+            psp22_amount_in_with_lp_fees = psp22_amount_in_with_lp_fees / 10u128.pow(12);
 
-            // calculating the final future A0 amount to transfer to the caller.
-            match (amount_in_with_fees * (self.get_a0_balance() - current_amount_out)).checked_div(
-                ((self.get_psp22_balance() + psp22_amount_in) * 100) + amount_in_with_fees,
-            ) {
+            let mut numerator: U256 = U256::from(0);
+            let mut denominator: U256 = U256::from(0);
+            let future_a0_amount_out: Balance;
+
+            match U256::from(psp22_amount_in_with_lp_fees)
+                .checked_mul(U256::from(self.get_a0_balance() - current_amount_out))
+            {
                 Some(result) => {
-                    future_ao_amount_out = result;
+                    numerator = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
 
-            Ok(future_ao_amount_out)
+            match (U256::from(self.get_psp22_balance() + psp22_amount_in) * U256::from(100))
+                .checked_add(U256::from(psp22_amount_in_with_lp_fees))
+            {
+                Some(result) => {
+                    denominator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match numerator.checked_div(denominator) {
+                Some(result) => {
+                    future_a0_amount_out = result.as_u128();
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            Ok(future_a0_amount_out)
         }
 
         /// function to get the estimated price impact for given A0 amount
@@ -1136,36 +1203,47 @@ pub mod trading_pair_azero {
             &mut self,
             a0_amount_in: Balance,
         ) -> Result<Balance, TradingPairErrors> {
-            let actual_fee: Balance;
-
-            // calculating the actual LP fee
-            match self.fee.checked_div(10u128.pow(12)) {
-                Some(result) => {
-                    actual_fee = result;
-                }
-                None => return Err(TradingPairErrors::Overflow),
-            };
-
             let current_amount_out = self.get_est_price_a0_to_psp22(a0_amount_in).unwrap();
 
-            let amount_in_with_fees: Balance;
+            let mut a0_amount_in_with_lp_fees: U256 = U256::from(0);
 
             // reducting the LP fee from the A0 amount in
-            match a0_amount_in.checked_mul(100u128 - actual_fee) {
+            match U256::from(a0_amount_in)
+                .checked_mul(U256::from(100u128 * 10u128.pow(12)) - self.fee)
+            {
                 Some(result) => {
-                    amount_in_with_fees = result;
+                    a0_amount_in_with_lp_fees = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
 
+            a0_amount_in_with_lp_fees = a0_amount_in_with_lp_fees / 10u128.pow(12);
+
+            let mut numerator: U256 = U256::from(0);
+            let mut denominator: U256 = U256::from(0);
             let future_psp22_amount_out: Balance;
 
-            // calculating the final future PSP22 amount to transfer to the caller.
-            match (amount_in_with_fees * (self.get_psp22_balance() - current_amount_out))
-                .checked_div(((self.get_a0_balance() + a0_amount_in) * 100) + amount_in_with_fees)
+            match U256::from(a0_amount_in_with_lp_fees)
+                .checked_mul(U256::from(self.get_psp22_balance() - current_amount_out))
             {
                 Some(result) => {
-                    future_psp22_amount_out = result;
+                    numerator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match (U256::from(self.get_a0_balance() + a0_amount_in) * U256::from(100))
+                .checked_add(U256::from(a0_amount_in_with_lp_fees))
+            {
+                Some(result) => {
+                    denominator = result;
+                }
+                None => return Err(TradingPairErrors::Overflow),
+            };
+
+            match numerator.checked_div(denominator) {
+                Some(result) => {
+                    future_psp22_amount_out = result.as_u128();
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
