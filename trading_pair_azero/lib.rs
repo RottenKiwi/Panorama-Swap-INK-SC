@@ -1,12 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(min_specialization)]
 
+#[openbrush::implementation(PSP22)]
 #[openbrush::contract]
 pub mod trading_pair_azero {
 
     use ink::env::CallFlags; // Importing CallFlags from ink env
     use ink::prelude::vec; // Importing vec from ink prelude
-    use ink::prelude::vec::Vec;
     use ink::storage::Mapping; // Importing Mapping from ink storage
     use openbrush::{
         contracts::{
@@ -16,7 +15,8 @@ pub mod trading_pair_azero {
         traits::Storage,
     };
     use primitive_types::U256;
-
+    use openbrush::contracts::psp22::*;
+    
     #[ink(storage)]
     #[derive(Storage)]
     pub struct TradingPairAzero {
@@ -119,102 +119,101 @@ pub mod trading_pair_azero {
         a0_given_to_vault: Balance, // Amount of AZERO tokens sent to the vault as part of the swap
     }
 
-    impl PSP22 for TradingPairAzero {
-        #[ink(message)]
-        fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
-            self.lp_tokens_allowances
-                .get(&(owner, spender))
-                .unwrap_or(0)
-        }
-
-        #[ink(message)]
-        fn approve(&mut self, spender: AccountId, value: Balance) -> Result<(), PSP22Error> {
-            let caller = self.get_caller_id();
-
-            self.lp_tokens_allowances
-                .insert((caller, spender), &(value));
-
-            Ok(())
-        }
-
-        #[ink(message)]
-        fn transfer(
-            &mut self,
-            to: AccountId,
-            value: Balance,
-            _data: Vec<u8>,
-        ) -> Result<(), PSP22Error> {
-            let caller = self.get_caller_id();
-
-            let caller_shares: Balance = self.balances.get(&caller).unwrap_or(0);
-
-            let recipient_shares: Balance = self.balances.get(&to).unwrap_or(0);
-
-            if caller_shares < value {
-                return Err(PSP22Error::InsufficientBalance)
-            }
-
-            let new_caller_lp_balance: Balance = caller_shares - value;
-
-            let new_recipient_lp_balance: Balance = recipient_shares + value;
-
-            self.balances.insert(caller, &(new_caller_lp_balance));
-
-            self.balances.insert(to, &(new_recipient_lp_balance));
-
-            Ok(())
-        }
-
-        #[ink(message)]
-        fn transfer_from(
-            &mut self,
-            from: AccountId,
-            to: AccountId,
-            value: Balance,
-            _data: Vec<u8>,
-        ) -> Result<(), PSP22Error> {
-            let caller = self.get_caller_id();
-
-            let allowance = self.allowance(from, caller);
-
-            if allowance < value {
-                return Err(PSP22Error::InsufficientAllowance)
-            }
-
-            let from_shares: Balance = self.balances.get(&from).unwrap_or(0);
-
-            let recipient_shares: Balance = self.balances.get(&to).unwrap_or(0);
-
-            if from_shares < value {
-                return Err(PSP22Error::InsufficientBalance)
-            }
-
-            let new_from_lp_balance: Balance = from_shares - value;
-
-            let new_recipient_lp_balance: Balance = recipient_shares + value;
-
-            self.balances.insert(from, &(new_from_lp_balance));
-
-            self.balances.insert(to, &(new_recipient_lp_balance));
-
-            let new_allowance = allowance - value;
-
-            self.lp_tokens_allowances
-                .insert((from, caller), &(new_allowance));
-
-            Ok(())
-        }
-
-        #[ink(message)]
-        fn balance_of(&self, owner: AccountId) -> Balance {
-            self.balances.get(&owner).unwrap_or(0)
-        }
-
-        #[ink(message)]
-        fn total_supply(&self) -> Balance {
-            self.total_supply
-        }
+    #[overrider(PSP22)]
+    fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
+        self.lp_tokens_allowances
+        .unwrap_or(0)
+        .get(&(owner, spender))
     }
+
+    #[overrider(PSP22)]
+    fn approve(&mut self, spender: AccountId, value: Balance) -> Result<(), PSP22Error> {
+        let caller = self.get_caller_id();
+
+        self.lp_tokens_allowances
+            .insert((caller, spender), &(value));
+
+        Ok(())
+    }
+
+    #[overrider(PSP22)]
+    fn transfer(
+        &mut self,
+        to: AccountId,
+        value: Balance,
+        _data: Vec<u8>,
+    ) -> Result<(), PSP22Error> {
+        let caller = self.get_caller_id();
+
+        let caller_shares: Balance = self.balances.get(&caller).unwrap_or(0);
+
+        let recipient_shares: Balance = self.balances.get(&to).unwrap_or(0);
+
+        if caller_shares < value {
+            return Err(PSP22Error::InsufficientBalance)
+        }
+
+        let new_caller_lp_balance: Balance = caller_shares - value;
+
+        let new_recipient_lp_balance: Balance = recipient_shares + value;
+
+        self.balances.insert(caller, &(new_caller_lp_balance));
+
+        self.balances.insert(to, &(new_recipient_lp_balance));
+
+        Ok(())
+    }
+
+    #[overrider(PSP22)]
+    fn transfer_from(
+        &mut self,
+        from: AccountId,
+        to: AccountId,
+        value: Balance,
+        _data: Vec<u8>,
+    ) -> Result<(), PSP22Error> {
+        let caller = self.get_caller_id();
+
+        let allowance = self.allowance(from, caller);
+
+        if allowance < value {
+            return Err(PSP22Error::InsufficientAllowance)
+        }
+
+        let from_shares: Balance = self.balances.get(&from).unwrap_or(0);
+
+        let recipient_shares: Balance = self.balances.get(&to).unwrap_or(0);
+
+        if from_shares < value {
+            return Err(PSP22Error::InsufficientBalance)
+        }
+
+        let new_from_lp_balance: Balance = from_shares - value;
+
+        let new_recipient_lp_balance: Balance = recipient_shares + value;
+
+        self.balances.insert(from, &(new_from_lp_balance));
+
+        self.balances.insert(to, &(new_recipient_lp_balance));
+
+        let new_allowance = allowance - value;
+
+        self.lp_tokens_allowances
+            .insert((from, caller), &(new_allowance));
+
+        Ok(())
+    }
+
+    #[overrider(PSP22)]
+    fn balance_of(&self, owner: AccountId) -> Balance {
+        self.balances.get(&owner).unwrap_or(0)
+    }
+
+    #[overrider(PSP22)]
+    fn total_supply(&self) -> Balance {
+        self.total_supply
+    }
+    
 
     impl TradingPairAzero {
         #[ink(constructor)]
