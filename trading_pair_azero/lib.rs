@@ -9,13 +9,12 @@ pub mod trading_pair_azero {
     use ink::storage::Mapping; // Importing Mapping from ink storage
     use openbrush::{
         contracts::{
-            psp22::extensions::burnable::*,
             traits::psp22::PSP22Ref,
         },
         traits::Storage,
     };
     use primitive_types::U256;
-    use openbrush::contracts::psp22::*;
+
     
     #[ink(storage)]
     #[derive(Storage)]
@@ -122,8 +121,8 @@ pub mod trading_pair_azero {
     #[overrider(PSP22)]
     fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance {
         self.lp_tokens_allowances
-        .unwrap_or(0)
         .get(&(owner, spender))
+        .unwrap_or(0)
     }
 
     #[overrider(PSP22)]
@@ -174,7 +173,8 @@ pub mod trading_pair_azero {
     ) -> Result<(), PSP22Error> {
         let caller = self.get_caller_id();
 
-        let allowance = self.allowance(from, caller);
+        let allowance = psp22::PSP22::allowance(self, from, caller);
+        
 
         if allowance < value {
             return Err(PSP22Error::InsufficientAllowance)
@@ -385,7 +385,7 @@ pub mod trading_pair_azero {
                 psp22_deposit_amount,
                 vec![],
             )
-            .call_flags(CallFlags::default().set_allow_reentry(true))
+            .call_flags(CallFlags::default().set_allow_reentry(false))
             .try_invoke()
             .is_err()
             {
@@ -405,7 +405,8 @@ pub mod trading_pair_azero {
             // Increase the LP balance of `caller` (mint) by inserting `new_caller_shares` into `self.balances`
             self.balances.insert(caller, &(new_caller_shares));
 
-            self._mint_to(caller, shares.as_u128());
+            //self._mint_to(caller, shares.as_u128());
+            psp22::Internal::_mint_to(self,caller, shares.as_u128());
 
             // Add `shares` to the total supply of LP tokens (mint)
             self.total_supply += shares.as_u128();
@@ -490,7 +491,8 @@ pub mod trading_pair_azero {
 
             // reducing caller total LP share tokens balance
             self.balances.insert(caller, &(new_caller_lp_shares));
-            self._burn_from(caller, shares);
+            //self._burn_from(caller, shares);
+            psp22::Internal::_burn_from(self,caller, shares);
 
             // reducing overall LP token supply
             self.total_supply -= shares;
