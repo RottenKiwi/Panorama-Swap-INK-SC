@@ -1025,7 +1025,6 @@ pub mod trading_pair_azero {
 
             let mut numerator: U256 = U256::from(0);
             let mut denominator: U256 = U256::from(0);
-
             let a0_amount_out: Balance;
 
             match U256::from(a0_amount_in_with_lp_fees)
