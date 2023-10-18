@@ -6,19 +6,19 @@ edition = "2021"
 overflow-checks = false
 
 [dependencies]
-ink = { version = "~4.0.0", default-features = false }
+ink = { version = "4.3.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
     "derive",
 ] }
-scale-info = { version = "2.3", default-features = false, features = [
+scale-info = { version = "2.6.0", default-features = false, features = [
     "derive",
 ], optional = true }
 
-# Include brush as a dependency and enable default implementation for PSP22 via brush feature
-openbrush = { tag = "3.0.0", git = "https://github.com/727-Ventures/openbrush-contracts", default-features = false, features = [
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "4.0.0-beta", default-features = false, features = [
     "psp22",
 ] }
+
 
 [lib]
 name = "my_psp22"

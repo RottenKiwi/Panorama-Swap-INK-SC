@@ -1,8 +1,9 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-#![feature(min_specialization)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
+
 
 pub use self::my_psp22::MyPsp22Ref;
 
+#[openbrush::implementation(PSP22, PSP22Metadata)]
 #[openbrush::contract]
 pub mod my_psp22 {
 
@@ -58,55 +59,46 @@ pub mod my_psp22 {
 
     pub type Event = <MyPsp22 as ContractEventBase>::Type;
 
-    impl PSP22 for MyPsp22 {}
+    #[overrider(PSP22)]
+    fn _emit_transfer_event(
+        &self,
+        _from: Option<AccountId>,
+        _to: Option<AccountId>,
+        _amount: Balance,
+    ) {
+        MyPsp22::emit_event(
+            self.env(),
+            Event::Transfer(Transfer {
+                from: _from,
+                to: _to,
+                value: _amount,
+            }),
+        );
 
-    impl PSP22Metadata for MyPsp22 {}
-
-    impl psp22::Internal for MyPsp22 {
-        fn _emit_transfer_event(
-            &self,
-            _from: Option<AccountId>,
-            _to: Option<AccountId>,
-            _amount: Balance,
-        ) {
-            MyPsp22::emit_event(
-                self.env(),
-                Event::Transfer(Transfer {
-                    from: _from,
-                    to: _to,
-                    value: _amount,
-                }),
-            );
-
-        }
-
-        fn _emit_approval_event(&self, _owner: AccountId, _spender: AccountId, _amount: Balance) {
-            MyPsp22::emit_event(
-                self.env(),
-                Event::Approval(Approval {
-                    owner: _owner,
-                    spender: _spender,
-                    value: _amount,
-                }),
-            )
-        }
     }
+
+    #[overrider(PSP22)]
+    fn _emit_approval_event(&self, _owner: AccountId, _spender: AccountId, _amount: Balance) {
+        MyPsp22::emit_event(
+            self.env(),
+            Event::Approval(Approval {
+                owner: _owner,
+                spender: _spender,
+                value: _amount,
+            }),
+        )
+    }
+    
 
     impl MyPsp22 {
         #[ink(constructor)]
-        pub fn new(total_supply: Balance, name: Option<String>, symbol: Option<String>, decimal: u8) -> Self {
-            let mut instance = Self::default();
-
-            instance.metadata.name = name;
-            instance.metadata.symbol = symbol;
-            instance.metadata.decimals = decimal;
-            let is_holder_mapping = Mapping::default();
-            instance.is_holder = is_holder_mapping;
-            instance
-                ._mint_to(instance.env().caller(), total_supply)
-                .expect("Should mint total_supply");
-
-            instance
+        pub fn new(initial_supply: Balance, name: Option<String>, symbol: Option<String>, decimal: u8) -> Self {
+            let mut _instance = Self::default();
+			psp22::Internal::_mint_to(&mut _instance, Self::env().caller(), initial_supply).expect("Should mint"); 
+			_instance.metadata.name.set(&name);
+			_instance.metadata.symbol.set(&symbol);
+			_instance.metadata.decimals.set(&decimal);
+			_instance
 
         }
 
