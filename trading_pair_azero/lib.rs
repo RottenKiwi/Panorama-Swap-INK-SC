@@ -59,6 +59,8 @@ pub mod trading_pair_azero {
         staking_percentage: Balance,
         // LP lock timestamp
         lp_lock_timestamp: u64,
+        // Deployer account address
+        deployer: AccountId
     }
 
     #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -223,6 +225,7 @@ pub mod trading_pair_azero {
             panx_contract: AccountId,  // Address of the PANX token contract
             vault: AccountId,          // Address of the vault where traders fees are sent
             lp_lock_timestamp: u64,    // Lp lock timestamp
+            deployer: AccountId
         ) -> Self {
             let psp22: psp22::Data = Default::default();
             let transasction_number: i64 = 0; // Number of transactions initiated
@@ -263,6 +266,7 @@ pub mod trading_pair_azero {
                 staking_percentage,
                 lp_lock_timestamp,
                 psp22,
+                deployer
             }
         }
 
@@ -385,7 +389,7 @@ pub mod trading_pair_azero {
                 psp22_deposit_amount,
                 vec![],
             )
-            .call_flags(CallFlags::default().set_allow_reentry(false))
+            .call_flags(CallFlags::default().set_allow_reentry(true))
             .try_invoke()
             .is_err()
             {
@@ -435,7 +439,11 @@ pub mod trading_pair_azero {
             &mut self,
             shares: Balance, // number of shares the caller wants to withdraw
         ) -> Result<(), TradingPairErrors> {
-            if self.get_current_timestamp() < self.lp_lock_timestamp {
+            
+            // caller address
+            let caller = self.env().caller();
+
+            if self.get_current_timestamp() < self.lp_lock_timestamp && caller == self.deployer {
                 return Err(TradingPairErrors::LpStillLocked)
             }
 
@@ -444,8 +452,7 @@ pub mod trading_pair_azero {
                 return Err(TradingPairErrors::ZeroSharesGiven)
             }
 
-            // caller address
-            let caller = self.env().caller();
+
 
             // caller total LP shares
             let caller_shares: Balance = self.balances.get(&caller).unwrap_or(0);
@@ -1836,6 +1843,11 @@ pub mod trading_pair_azero {
         #[ink(message)]
         pub fn get_account_id(&self) -> AccountId {
             Self::env().account_id()
+        }
+
+        #[ink(message)]
+        pub fn get_deployer_account(&self) -> AccountId {
+            self.deployer
         }
 
         /// function to get AzeroTradingPair contract address (self)

@@ -15,7 +15,7 @@ scale-info = { version = "2.6.0", default-features = false, features = [
     "derive",
 ], optional = true }
 
-openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "4.0.0", default-features = false, features = [
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "4.0.0-beta", default-features = false, features = [
     "psp22",
 ] }
 
