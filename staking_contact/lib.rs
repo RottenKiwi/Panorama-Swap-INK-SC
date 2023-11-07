@@ -495,7 +495,7 @@ pub mod staking_contract {
         ///function to get the amount of tokens to give to caller each day.
         #[ink(message)]
         pub fn get_amount_to_give_each_day_to_caller(
-            &mut self,
+            &self,
             caller:AccountId
         )   -> Balance  {
         
