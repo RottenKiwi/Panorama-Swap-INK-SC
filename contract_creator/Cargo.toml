@@ -6,15 +6,23 @@ edition = "2021"
 overflow-checks = false
 
 [dependencies]
-ink = { version = "~4.0.0", default-features = false}
-scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
-scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
-openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag="3.0.0", default-features= false, features = ["psp22"] }
-trading_pair_psp22 = { path = "../trading_pair_psp22",version="1.0.0",default-features = false, features = ["ink-as-dependency"] }
-trading_pair_azero = { path = "../trading_pair_azero",version="2.5.2",default-features = false, features = ["ink-as-dependency"] }
-multi_sig = { path = "../multi_sig",version="1.0.0",default-features = false, features = ["ink-as-dependency"] }
+ink = { version = "4.3.0", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
+    "derive",
+] }
+scale-info = { version = "2.6.0", default-features = false, features = [
+    "derive",
+], optional = true }
+
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "4.0.0-beta", default-features = false, features = [
+    "psp22",
+] }
 
 
+trading_pair_azero = { path = "../trading_pair_azero", version = "2.5.2", default-features = false, features = [
+    "ink-as-dependency",
+] }
 
 
 [lib]
@@ -22,8 +30,8 @@ overflow-checks = false
 name = "contract_creator"
 path = "lib.rs"
 crate-type = [
-	# Used for normal contract Wasm blobs.
-	"cdylib"
+    # Used for normal contract Wasm blobs.
+    "cdylib",
 ]
 [profile.release]
 overflow-checks = false
@@ -37,14 +45,10 @@ std = [
     "scale-info/std",
     "openbrush/std",
     "trading_pair_azero/std",
-    "trading_pair_psp22/std"
+
 ]
 psp22 = ["openbrush/psp22"]
 ink-as-dependency = []
 
 [workspace]
-memebers =[
-    "trading_pair_azero",
-    "trading_pair_psp22"
-]
-
+memebers = ["trading_pair_azero"]

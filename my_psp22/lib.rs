@@ -107,6 +107,5 @@ pub mod my_psp22 {
             emitter.emit_event(event);
         }
 
-
     }
 }

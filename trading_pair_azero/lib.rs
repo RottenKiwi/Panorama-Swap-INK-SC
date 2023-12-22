@@ -540,6 +540,7 @@ pub mod trading_pair_azero {
             Ok(())
         }
 
+       
         /// function to get the amount of withdrawable PSP22 and A0 by given number of LP shares without LP fees.
         #[ink(message)]
         pub fn get_withdraw_tokens_amount(
@@ -562,10 +563,12 @@ pub mod trading_pair_azero {
 
             let actual_psp22_balance = self.get_psp22_balance(); // Get the actual balance of PSP22 tokens.
 
-            let mut amount_of_psp22_to_give: Balance; // Amount of PSP22 tokens to give to the caller.
+            let mut amount_of_psp22_to_give: U256; // Amount of PSP22 tokens to give to the caller.
 
             // Calculate the amount of PSP22 tokens to give to the caller.
-            match (shares_amount * actual_psp22_balance).checked_div(self.total_supply) {
+            match (U256::from(shares_amount) * U256::from(actual_psp22_balance))
+                .checked_div(U256::from((self.total_supply)))
+            {
                 Some(result) => {
                     amount_of_psp22_to_give = result;
                 }
@@ -580,11 +583,11 @@ pub mod trading_pair_azero {
             // amount of AZERO tokens the caller earned from the LP fee
             let a0_fee_amount_to_give = self.get_a0_lp_fee_tokens(shares_amount).unwrap();
 
-            amount_of_psp22_to_give -= psp22_fee_amount_to_give;
+            amount_of_psp22_to_give -= U256::from(psp22_fee_amount_to_give);
 
             amount_of_a0_to_give -= a0_fee_amount_to_give;
 
-            Ok((amount_of_a0_to_give, amount_of_psp22_to_give)) // Return the calculated amounts of A0 and PSP22 tokens to give to the caller.
+            Ok((amount_of_a0_to_give, amount_of_psp22_to_give.as_u128())) // Return the calculated amounts of A0 and PSP22 tokens to give to the caller.
         }
 
         /// function to get the amount of withdrawable PSP22 and A0 by given number of LP shares with LP fees.
@@ -593,12 +596,12 @@ pub mod trading_pair_azero {
             &self,
             shares_amount: Balance,
         ) -> Result<(Balance, Balance), TradingPairErrors> {
-            let amount_of_a0_to_give: Balance;
+            let amount_of_a0_to_give: U256;
 
             let actual_a0_balance = self.get_a0_balance();
 
             // calculating the amount of A0 to give to the caller.
-            match (shares_amount * actual_a0_balance).checked_div(self.total_supply) {
+            match (U256::from(shares_amount) * U256::from(actual_a0_balance)).checked_div(U256::from(self.total_supply)) {
                 Some(result) => {
                     amount_of_a0_to_give = result;
                 }
@@ -607,17 +610,17 @@ pub mod trading_pair_azero {
 
             let actual_psp22_balance = self.get_psp22_balance();
 
-            let amount_of_psp22_to_give: Balance;
+            let amount_of_psp22_to_give: U256;
 
             // calculating the amount of PSP22 to give to the caller.
-            match (shares_amount * actual_psp22_balance).checked_div(self.total_supply) {
+            match (U256::from(shares_amount) * U256::from(actual_psp22_balance)).checked_div(U256::from(self.total_supply)) {
                 Some(result) => {
                     amount_of_psp22_to_give = result;
                 }
                 None => return Err(TradingPairErrors::Overflow),
             };
 
-            Ok((amount_of_a0_to_give, amount_of_psp22_to_give))
+            Ok((amount_of_a0_to_give.as_u128(), amount_of_psp22_to_give.as_u128()))
         }
 
         /// function to get the amount of withdrawable pooled PSP22 tokens by given number of LP shares without LP fees.
@@ -699,6 +702,8 @@ pub mod trading_pair_azero {
             let amount_of_a0_to_give: U256;
 
             let actual_a0_balance = self.get_a0_balance();
+
+            
 
             // calculating the amount of A0 to give to the caller.
             match (U256::from(shares_amount) * U256::from(actual_a0_balance))
@@ -822,32 +827,37 @@ pub mod trading_pair_azero {
             a0_deposit_amount: Balance,
             psp22_deposit_amount: Balance,
         ) -> Result<Balance, TradingPairErrors> {
-            let mut shares: Balance = 0;
+
+            let mut shares: U256 = U256::from(0) ;
 
             // if its the trading pair first deposit
             if self.total_supply == 0 {
-                // calculating the amount of shares to give to the provider if its the first LP deposit overall
-                shares = a0_deposit_amount * psp22_deposit_amount;
-                match shares.checked_div(10u128.pow(12)) {
+
+                shares = U256::from(a0_deposit_amount) * U256::from(psp22_deposit_amount);
+
+                match shares.checked_div(U256::from(10u128.pow(12))) {
                     Some(result) => {
                         shares = result;
                     }
                     None => return Err(TradingPairErrors::Overflow),
                 };
+
             }
 
             // if its not the first LP deposit
             if self.total_supply > 0 {
-                // calculating the amount of shares to give to the provider if its not the first LP deposit
-                match (a0_deposit_amount * self.total_supply).checked_div(self.get_a0_balance()) {
-                    Some(result) => {
-                        shares = result;
-                    }
-                    None => return Err(TradingPairErrors::Overflow),
-                };
+
+                let coin_product = (a0_deposit_amount * self.total_supply)
+                    / self.get_a0_balance();
+
+                let psp22_product =
+                    (psp22_deposit_amount * self.total_supply) / self.get_psp22_balance();
+
+                shares = U256::from(self._min(coin_product, psp22_product));
+
             }
 
-            Ok(shares)
+            Ok(shares.as_u128())
         }
 
         /// function to get the amount of A0 the caller will get for 1 PSP22 token.
@@ -1716,9 +1726,9 @@ pub mod trading_pair_azero {
 
             let psp22_redeemable_amount = self.get_psp22_redeemable_amount().unwrap_or(0);
 
-            if psp22_redeemable_amount == 0 {
-                return Err(TradingPairErrors::ZeroRedeemableAmount)
-            }
+            //if psp22_redeemable_amount == 0 {
+            //    return Err(TradingPairErrors::ZeroRedeemableAmount)
+            //}
 
             // cross contract call to PSP22 contract to transfer PSP22 to caller
             if PSP22Ref::transfer(&self.psp22_token, caller, psp22_redeemable_amount, vec![])
@@ -1869,9 +1879,11 @@ pub mod trading_pair_azero {
         /// function to get trading contract AZERO balance
         #[ink(message)]
         pub fn get_a0_balance(&self) -> Balance {
-            let a0_balance = self.env().balance();
+            let mut a0_balance = self.env().balance();
+            a0_balance = a0_balance;
             a0_balance
         }
+
 
         /// function to get shares of specific account
         #[ink(message)]

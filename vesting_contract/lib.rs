@@ -802,7 +802,7 @@ pub mod vesting_contract {
                 .is_err());
         
             Ok(())
-            
+
         }
 
     }

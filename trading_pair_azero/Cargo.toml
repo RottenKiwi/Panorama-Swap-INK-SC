@@ -14,11 +14,12 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6.0", default-features = false, features = [
     "derive",
 ], optional = true }
-primitive-types = { version = "0.12.0", default-features = false, features = [
-    "scale-info",
-] }
+
 openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", tag = "4.0.0-beta", default-features = false, features = [
     "psp22",
+] }
+primitive-types = { version = "0.12.0", default-features = false, features = [
+    "scale-info",
 ] }
 
 

@@ -1,13 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(min_specialization)]
+
 
 #[ink::contract]
 pub mod pair_creator {
 
     use ink::LangError;
-    use multi_sig::MultiSigRef;
     use trading_pair_azero::trading_pair_azero::TradingPairAzeroRef;
-    use trading_pair_psp22::TradingPairPsp22Ref;
 
     #[ink(storage)]
     pub struct PairCreator {}
@@ -64,12 +62,15 @@ pub mod pair_creator {
         ) -> Result<AccountId, PairCreatorErrors> {
             let salt = version.to_le_bytes();
 
+            let deployer = self.env().caller();
+
             let trading_pair = TradingPairAzeroRef::new(
                 psp22_addrr,
                 fee,
                 panx_contract,
                 vault_address,
                 lp_lock_timestamp,
+                deployer
             )
             .endowment(0)
             .code_hash(azero_trading_pair_hash)
@@ -81,54 +82,9 @@ pub mod pair_creator {
             Ok(new_pair_address)
         }
 
-        #[ink(message, payable)]
-        pub fn create_psp22_trading_pair(
-            &mut self,
-            psp22_trading_pair_hash: Hash,
-            version: u32,
-            psp22_token1_addrr: AccountId,
-            psp22_token2_addrr: AccountId,
-            fee: Balance,
-            panx_contract: AccountId,
-            vault_address: AccountId,
-        ) -> Result<AccountId, PairCreatorErrors> {
-            let salt = version.to_le_bytes();
 
-            let trading_pair = TradingPairPsp22Ref::new(
-                psp22_token1_addrr,
-                psp22_token2_addrr,
-                fee,
-                panx_contract,
-                vault_address,
-            )
-            .endowment(0)
-            .code_hash(psp22_trading_pair_hash)
-            .salt_bytes(salt)
-            .try_instantiate()??;
 
-            let new_pair_address = trading_pair.get_account_id();
 
-            Ok(new_pair_address)
-        }
 
-        #[ink(message, payable)]
-        pub fn create_multi_sig_wallet(
-            &mut self,
-            multi_sig_hash: Hash,
-            version: u32,
-            vault_address: AccountId,
-        ) -> Result<AccountId, PairCreatorErrors> {
-            let salt = version.to_le_bytes();
-
-            let multi_sig_wallet = MultiSigRef::new(vault_address)
-                .endowment(0)
-                .code_hash(multi_sig_hash)
-                .salt_bytes(salt)
-                .try_instantiate()??;
-
-            let new_multi_sig_wallet_address = multi_sig_wallet.get_account_id();
-
-            Ok(new_multi_sig_wallet_address)
-        }
     }
 }
