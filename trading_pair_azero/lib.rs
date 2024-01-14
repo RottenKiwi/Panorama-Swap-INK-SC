@@ -310,9 +310,9 @@ pub mod trading_pair_azero {
 
             if self.total_supply > 0 {
                 let reserve_before_transaction =
-                    self.get_a0_balance() - self.env().transferred_value();
+                    self.get_a0_balance() - a0_deposit_amount;
 
-                let coin_product = (self.env().transferred_value() * self.total_supply)
+                let coin_product = (a0_deposit_amount * self.total_supply)
                     / reserve_before_transaction;
 
                 let psp22_product =

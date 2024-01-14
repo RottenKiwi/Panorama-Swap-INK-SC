@@ -18,16 +18,16 @@ psp22 is a contract that implements OpenBrush's PSP22 standard, allowing the cre
 ### trading_pair_azero
 trading_pair_azero is a contract used in deploying AZERO/PSP22 trading pairs and pools on the Panorama Swap platform. This contract provides the necessary functionality to enable trading and liquidity provision for the AZERO/PSP22 pair.
 
-### trading_pair_psp22
+### trading_pair_psp22 (Work in progress)
 trading_pair_psp22 is a contract used in deploying PSP22/PSP22 trading pairs and pools on the Panorama Swap platform. This contract provides the necessary functionality to enable trading and liquidity provision for the PSP22/PSP22 pair.
 
 ### vesting_contract
 vesting_contract is a smart contract that contains all the logic for the vesting program on the Panorama Swap platform. This contract is used to manage the vesting of tokens for different stakeholders according to predefined rules and conditions.
 
-### airdrop_contract
+### airdrop_contract (No longer in use)
 airdrop_contract is a smart contract that contains all the logic for the airdrop event on the Panorama Swap platform. This contract is used to distribute tokens to eligible participants in an airdrop campaign based on specific criteria and rules.
 
-### multi_sig
+### multi_sig (Work in progress)
 multi_sig is a smart contract that contains all the logic for a multiple signatures wallet on the Panorama Swap platform. This contract provides a secure and decentralized way to manage funds by requiring multiple signatures for certain operations, ensuring increased security and accountability.
 
 ## How to build and deploy the contracts
