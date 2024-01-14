@@ -57,8 +57,6 @@ pub mod my_psp22 {
         is_holder :Mapping<AccountId, bool>
     }
 
-    pub type Event = <MyPsp22 as ContractEventBase>::Type;
-
     #[overrider(PSP22)]
     fn _emit_transfer_event(
         &self,
@@ -88,6 +86,64 @@ pub mod my_psp22 {
             }),
         )
     }
+
+    #[overrider(PSP22)]
+    fn _emit_approval_event(&self, _owner: AccountId, _spender: AccountId, _amount: Balance) {
+        MyPsp22::emit_event(
+            self.env(),
+            Event::Approval(Approval {
+                owner: _owner,
+                spender: _spender,
+                value: _amount,
+            }),
+        )
+    }
+
+
+    #[overrider(PSP22)]
+    fn _mint_to(&mut self, account: AccountId, amount: Balance) -> Result<(), PSP22Error> {
+        let mut new_balance = self._balance_of(&account);
+        new_balance += amount;
+        self.psp22.balances.insert(&account, &new_balance);
+        self.psp22.supply += amount;
+        self._emit_transfer_event(None, Some(account), amount);
+        Ok(())
+    }
+
+    #[overrider(PSP22)]
+    fn _approve_from_to(
+        &mut self,
+        owner: AccountId,
+        spender: AccountId,
+        amount: Balance,
+    ) -> Result<(), PSP22Error> {
+        self.psp22.allowances.insert(&(&owner, &spender), &amount);
+        self._emit_approval_event(owner, spender, amount);
+        Ok(())
+    }
+
+
+    #[overrider(PSP22)]
+    fn _transfer_from_to(
+        &mut self,
+        from: AccountId,
+        to: AccountId,
+        amount: Balance,
+        _data: Vec<u8>,
+    ) -> Result<(), PSP22Error> {
+        let from_balance = self._balance_of(&from);
+
+        if from_balance < amount {
+            return Err(PSP22Error::InsufficientBalance)
+        }
+
+        self.psp22.balances.insert(&from, &(from_balance - amount));
+        let to_balance = self._balance_of(&to);
+        self.psp22.balances.insert(&to, &(to_balance + amount));
+
+        self._emit_transfer_event(Some(from), Some(to), amount);
+        Ok(())
+    }
     
 
     impl MyPsp22 {
@@ -102,10 +158,7 @@ pub mod my_psp22 {
 
         }
 
-        // Emit event abstraction. Otherwise ink! deserializes events incorrectly when there are events from more than one contract.
-        pub fn emit_event<EE: EmitEvent<Self>>(emitter: EE, event: Event) {
-            emitter.emit_event(event);
-        }
+
 
     }
 }
