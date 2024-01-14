@@ -13,16 +13,3 @@ gensrc
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
 Cargo.lock
 
-
-
-**/trading_pair_astar/
-*/trading_pair_astar/
-*/zero_airdrop/
-**/zero_airdrop/
-**/airdrop_contract/
-*/airdrop_contract/
-*/multi_sig/
-**/multi_sig/
-**/staking_contract/
-*/staking_contract/
-**/trading_pair_psp22/
