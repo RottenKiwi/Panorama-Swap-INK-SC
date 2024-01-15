@@ -99,6 +99,17 @@ pub mod my_psp22 {
         )
     }
 
+    #[overrider(psp22::Internal)]
+    fn _approve_from_to(
+        &mut self,
+        owner: AccountId,
+        spender: AccountId,
+        amount: Balance,
+    ) -> Result<(), PSP22Error> {
+        self.psp22.allowances.insert(&(&owner, &spender), &amount);
+        self._emit_approval_event(owner, spender, amount);
+        Ok(())
+    }
 
     #[overrider(PSP22)]
     fn _mint_to(&mut self, account: AccountId, amount: Balance) -> Result<(), PSP22Error> {
@@ -110,17 +121,7 @@ pub mod my_psp22 {
         Ok(())
     }
 
-    #[overrider(PSP22)]
-    fn _approve_from_to(
-        &mut self,
-        owner: AccountId,
-        spender: AccountId,
-        amount: Balance,
-    ) -> Result<(), PSP22Error> {
-        self.psp22.allowances.insert(&(&owner, &spender), &amount);
-        self._emit_approval_event(owner, spender, amount);
-        Ok(())
-    }
+
 
 
     #[overrider(PSP22)]
