@@ -12,8 +12,8 @@ This repository contains the following smart contracts:
 ### contract_creator
 contract_creator is a contract used to deploy and create trading_pair_azero, trading_pair_psp22 and multi_sig contracts. These contracts enable users to create their own liquidity pools and trading pairs on the Panorama Swap platform and multi sig wallets.
 
-### psp22
-psp22 is a contract that implements OpenBrush's PSP22 standard, allowing the creation of PSP22 tokens with metadata extensions such as token name and symbol. This contract provides the functionality to manage PSP22 tokens on the Panorama Swap platform.
+### PSP22
+psp22 is a contract that implements OpenBrush's PSP22 standard with Cardinal-Cryptography implementation [https://github.com/Cardinal-Cryptography/PSP22](https://github.com/Cardinal-Cryptography/PSP22) , allowing the creation of PSP22 tokens with metadata extensions such as token name and symbol. This contract provides the functionality to manage PSP22 tokens on the Panorama Swap platform.
 
 ### trading_pair_azero
 trading_pair_azero is a contract used in deploying AZERO/PSP22 trading pairs and pools on the Panorama Swap platform. This contract provides the necessary functionality to enable trading and liquidity provision for the AZERO/PSP22 pair.
