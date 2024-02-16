@@ -1950,12 +1950,15 @@ pub mod trading_pair_azero {
             a0_deposit_amount: Balance,
             a0_contract_balance: Balance,
         ) -> Balance {
-            let psp22_amount_to_deposit = ((self.get_psp22_balance() * (10u128.pow(12)))
-                / a0_contract_balance
-                * a0_deposit_amount)
-                / (10u128.pow(12));
 
-            psp22_amount_to_deposit
+            let psp22_amount_to_deposit:U256;
+
+            psp22_amount_to_deposit = ((U256::from(self.get_psp22_balance()) * (U256::from(10u128.pow(12))))
+                / U256::from(a0_contract_balance)
+                * U256::from(a0_deposit_amount))
+                / (U256::from(10u128.pow(12)));
+
+            psp22_amount_to_deposit.as_u128()
         }
 
         #[ink(message)]
@@ -1964,12 +1967,14 @@ pub mod trading_pair_azero {
             psp22_deposit_amount: Balance,
             a0_contract_balance: Balance,
         ) -> Balance {
-            let a0_amount_to_deposit = ((a0_contract_balance * (10u128.pow(12)))
-                / self.get_psp22_balance()
-                * psp22_deposit_amount)
-                / (10u128.pow(12));
+            let a0_amount_to_deposit:U256;
 
-            a0_amount_to_deposit
+            a0_amount_to_deposit = ((U256::from(a0_contract_balance) * (U256::from(10u128.pow(12))))
+                / U256::from(self.get_psp22_balance())
+                * U256::from(psp22_deposit_amount))
+                / (U256::from(10u128.pow(12)));
+
+            a0_amount_to_deposit.as_u128()
         }
 
         /// function to get current timpstamp in seconds

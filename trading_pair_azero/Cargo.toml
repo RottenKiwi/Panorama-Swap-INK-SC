@@ -25,7 +25,7 @@ primitive-types = { version = "0.12.0", default-features = false, features = [
 
 [dev-dependencies]
 ink_e2e = "4.0.0"
-my_psp22 = { path = "../my_psp22", version = "1.0.0", default-features = false, features = [
+my_psp22 = { path = "../../my_psp22", version = "1.0.0", default-features = false, features = [
     "ink-as-dependency",
 ] }
 
